@@ -34,8 +34,15 @@ export default function TestInterface() {
   const [paletteOpen, setPaletteOpen] = useState(false)
 
   const saveTimerRef = useRef(null)
+  const pendingSaveRef = useRef(null)
   const questionStartRef = useRef(Date.now())
   const timeSpentRef = useRef({})
+  const responsesRef = useRef({})
+  const expiringRef = useRef(false)
+
+  useEffect(() => {
+    responsesRef.current = responses
+  }, [responses])
 
   useEffect(() => {
     async function init() {
@@ -58,9 +65,14 @@ export default function TestInterface() {
         setPaper(paperDet)
 
         const map = {}
+        const spentMs = {}
         existingResponses.forEach((r) => {
           map[r.question_id] = { selected_option: r.selected_option, is_flagged: r.is_flagged }
+          if (r.time_spent_secs != null) {
+            spentMs[r.question_id] = Math.max(0, Number(r.time_spent_secs) || 0) * 1000
+          }
         })
+        timeSpentRef.current = spentMs
         setResponses(map)
       } catch {
         setError('Failed to load the test. Please refresh.')
@@ -72,6 +84,7 @@ export default function TestInterface() {
   }, [sessionId, navigate])
 
   useEffect(() => {
+    if (questions.length === 0) return
     questionStartRef.current = Date.now()
     setVisited((prev) => new Set(prev).add(currentIndex))
   }, [currentIndex, questions.length])
@@ -90,23 +103,75 @@ export default function TestInterface() {
     if (!isMobile) setPaletteOpen(false)
   }, [isMobile])
 
+  const getTimeSpentSecs = useCallback((questionId) => {
+    const spentMs = timeSpentRef.current[questionId] || 0
+    return spentMs > 0 ? Math.ceil(spentMs / 1000) : 0
+  }, [])
+
+  const captureCurrentQuestionTime = useCallback(() => {
+    const questionId = questions[currentIndex]?.question_id
+    const now = Date.now()
+    if (questionId) {
+      const elapsedMs = Math.max(0, now - questionStartRef.current)
+      if (elapsedMs > 0) {
+        timeSpentRef.current[questionId] = (timeSpentRef.current[questionId] || 0) + elapsedMs
+      }
+    }
+    questionStartRef.current = now
+    return questionId
+  }, [currentIndex, questions])
+
+  const saveQuestionResponse = useCallback(
+    async (questionId, selectedOption) => {
+      const spent = getTimeSpentSecs(questionId)
+      await saveResponse(sessionId, questionId, selectedOption, spent)
+    },
+    [getTimeSpentSecs, sessionId],
+  )
+
+  const flushPendingSave = useCallback(async () => {
+    clearTimeout(saveTimerRef.current)
+    const pending = pendingSaveRef.current
+    pendingSaveRef.current = null
+    if (pending) {
+      await saveQuestionResponse(pending.questionId, pending.selectedOption)
+    }
+    return pending
+  }, [saveQuestionResponse])
+
+  const flushCurrentQuestion = useCallback(async () => {
+    const questionId = captureCurrentQuestionTime()
+    const pending = pendingSaveRef.current
+    await flushPendingSave()
+    if (questionId && pending?.questionId !== questionId) {
+      const selectedOption = responsesRef.current[questionId]?.selected_option ?? null
+      await saveQuestionResponse(questionId, selectedOption)
+    }
+  }, [captureCurrentQuestionTime, flushPendingSave, saveQuestionResponse])
+
   const persistResponse = useCallback(
     (questionId, selectedOption) => {
       clearTimeout(saveTimerRef.current)
+      pendingSaveRef.current = { questionId, selectedOption }
       saveTimerRef.current = setTimeout(async () => {
+        const pending = pendingSaveRef.current
+        if (!pending || pending.questionId !== questionId) return
         try {
-          const spent = timeSpentRef.current[questionId] || 0
-          await saveResponse(sessionId, questionId, selectedOption, spent)
+          await saveQuestionResponse(pending.questionId, pending.selectedOption)
+          if (pendingSaveRef.current === pending) {
+            pendingSaveRef.current = null
+          }
         } catch {
           // silent
         }
       }, SAVE_DEBOUNCE_MS)
     },
-    [sessionId],
+    [saveQuestionResponse],
   )
 
   const handleSelectOption = useCallback(
     (questionId, optionLabel, isMulti = false) => {
+      captureCurrentQuestionTime()
       setResponses((prev) => {
         const current = prev[questionId] || {}
         let newOption
@@ -122,18 +187,19 @@ export default function TestInterface() {
         return { ...prev, [questionId]: { ...current, selected_option: newOption } }
       })
     },
-    [persistResponse],
+    [captureCurrentQuestionTime, persistResponse],
   )
 
   const handleClearResponse = useCallback(() => {
     const q = questions[currentIndex]
     if (!q) return
+    captureCurrentQuestionTime()
     setResponses((prev) => ({
       ...prev,
       [q.question_id]: { ...(prev[q.question_id] || {}), selected_option: null },
     }))
     persistResponse(q.question_id, null)
-  }, [currentIndex, questions, persistResponse])
+  }, [captureCurrentQuestionTime, currentIndex, questions, persistResponse])
 
   const handleToggleFlag = useCallback(
     async (questionId) => {
@@ -150,9 +216,13 @@ export default function TestInterface() {
   )
 
   const goTo = useCallback((idx) => {
-    setCurrentIndex(Math.max(0, Math.min(idx, questions.length - 1)))
+    const nextIndex = Math.max(0, Math.min(idx, questions.length - 1))
+    if (nextIndex !== currentIndex) {
+      void flushCurrentQuestion().catch(() => {})
+      setCurrentIndex(nextIndex)
+    }
     setPaletteOpen(false)
-  }, [questions.length])
+  }, [currentIndex, flushCurrentQuestion, questions.length])
 
   const handleMarkAndNext = useCallback(async () => {
     const q = questions[currentIndex]
@@ -173,20 +243,26 @@ export default function TestInterface() {
     if (!window.confirm(msg)) return
     setSubmitting(true)
     try {
+      await flushCurrentQuestion()
       await submitSession(sessionId)
       navigate(`/result/${sessionId}`)
     } catch (err) {
       setError(err.response?.data?.detail || 'Submit failed. Please try again.')
       setSubmitting(false)
     }
-  }, [sessionId, navigate, responses, questions.length])
+  }, [flushCurrentQuestion, sessionId, navigate, responses, questions.length])
 
   const handleExpire = useCallback(() => {
+    if (expiringRef.current) return
+    expiringRef.current = true
+    setSubmitting(true)
     alert('Time is up! Your test is being submitted.')
-    submitSession(sessionId)
+    flushCurrentQuestion()
+      .catch(() => {})
+      .then(() => submitSession(sessionId))
       .then(() => navigate(`/result/${sessionId}`))
       .catch(() => navigate(`/result/${sessionId}`))
-  }, [sessionId, navigate])
+  }, [flushCurrentQuestion, sessionId, navigate])
 
   if (loading) {
     return (

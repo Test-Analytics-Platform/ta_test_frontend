@@ -14,3 +14,8 @@ export async function getPaperQuestions(paperId) {
   const { data } = await client.get(`/nta-papers/${paperId}/questions`)
   return data
 }
+
+export async function getPracticeFilters(exam) {
+  const { data } = await client.get('/nta-papers/practice/filters', { params: { exam } })
+  return data
+}
