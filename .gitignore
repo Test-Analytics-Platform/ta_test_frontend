@@ -24,3 +24,5 @@ Thumbs.db
 
 # Vite
 *.local
+
+# Ignore rules are kept explicit for frontend deployments.
