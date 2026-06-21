@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import Timer from '../components/Timer.jsx'
 import QuestionPalette from '../components/QuestionPalette.jsx'
 import QuestionView from '../components/QuestionView.jsx'
@@ -16,10 +16,20 @@ import { getPaperQuestions, getPaperDetail } from '../api/papers.js'
 
 const EXAM_LABELS = { JEE_MAINS: 'JEE Mains', JEE_ADV: 'JEE Advanced', NEET: 'NEET UG' }
 const SAVE_DEBOUNCE_MS = 400
+const LEAVE_TEST_MESSAGE = 'Your test is in progress. Saved answers remain, but the timer keeps running. Leave this test screen?'
+
+function getStoredReturnTo(sessionId) {
+  try {
+    return sessionStorage.getItem(`pariksha_return_to_${sessionId}`)
+  } catch {
+    return null
+  }
+}
 
 export default function TestInterface() {
   const { sessionId } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const isMobile = useIsMobile()
 
   const [session, setSession] = useState(null)
@@ -39,6 +49,9 @@ export default function TestInterface() {
   const timeSpentRef = useRef({})
   const responsesRef = useRef({})
   const expiringRef = useRef(false)
+  const allowHistoryLeaveRef = useRef(false)
+  const flushCurrentQuestionRef = useRef(null)
+  const returnToRef = useRef(location.state?.returnTo || getStoredReturnTo(sessionId) || '/practice')
 
   useEffect(() => {
     responsesRef.current = responses
@@ -91,8 +104,9 @@ export default function TestInterface() {
 
   useEffect(() => {
     function onBeforeUnload(e) {
+      if (allowHistoryLeaveRef.current) return
       e.preventDefault()
-      e.returnValue = 'Your test is in progress. Are you sure you want to leave?'
+      e.returnValue = LEAVE_TEST_MESSAGE
     }
     window.addEventListener('beforeunload', onBeforeUnload)
     return () => window.removeEventListener('beforeunload', onBeforeUnload)
@@ -148,6 +162,41 @@ export default function TestInterface() {
       await saveQuestionResponse(questionId, selectedOption)
     }
   }, [captureCurrentQuestionTime, flushPendingSave, saveQuestionResponse])
+
+  useEffect(() => {
+    flushCurrentQuestionRef.current = flushCurrentQuestion
+  }, [flushCurrentQuestion])
+
+  useEffect(() => {
+    if (!session || questions.length === 0) return
+
+    window.history.pushState({ parikshaTestGuard: sessionId }, '', window.location.href)
+
+    function onPopState() {
+      if (allowHistoryLeaveRef.current || expiringRef.current) return
+
+      const shouldLeave = window.confirm(LEAVE_TEST_MESSAGE)
+      if (!shouldLeave) {
+        window.history.pushState({ parikshaTestGuard: sessionId }, '', window.location.href)
+        return
+      }
+
+      allowHistoryLeaveRef.current = true
+      Promise.resolve(flushCurrentQuestionRef.current?.())
+        .catch(() => {})
+        .finally(() => {
+          window.history.back()
+          window.setTimeout(() => {
+            if (window.location.pathname.startsWith('/test/')) {
+              navigate(returnToRef.current, { replace: true })
+            }
+          }, 100)
+        })
+    }
+
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [navigate, questions.length, session, sessionId])
 
   const persistResponse = useCallback(
     (questionId, selectedOption) => {
@@ -245,7 +294,13 @@ export default function TestInterface() {
     try {
       await flushCurrentQuestion()
       await submitSession(sessionId)
-      navigate(`/result/${sessionId}`)
+      allowHistoryLeaveRef.current = true
+      try {
+        sessionStorage.removeItem(`pariksha_return_to_${sessionId}`)
+      } catch {
+        // ignore
+      }
+      navigate(`/result/${sessionId}`, { replace: true })
     } catch (err) {
       setError(err.response?.data?.detail || 'Submit failed. Please try again.')
       setSubmitting(false)
@@ -260,8 +315,19 @@ export default function TestInterface() {
     flushCurrentQuestion()
       .catch(() => {})
       .then(() => submitSession(sessionId))
-      .then(() => navigate(`/result/${sessionId}`))
-      .catch(() => navigate(`/result/${sessionId}`))
+      .then(() => {
+        allowHistoryLeaveRef.current = true
+        try {
+          sessionStorage.removeItem(`pariksha_return_to_${sessionId}`)
+        } catch {
+          // ignore
+        }
+        navigate(`/result/${sessionId}`, { replace: true })
+      })
+      .catch(() => {
+        allowHistoryLeaveRef.current = true
+        navigate(`/result/${sessionId}`, { replace: true })
+      })
   }, [flushCurrentQuestion, sessionId, navigate])
 
   if (loading) {

@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { getPapers, getPracticeFilters } from '../api/papers.js'
 import { useIsMobile } from '../hooks/useIsMobile.js'
@@ -14,6 +15,7 @@ const SECTIONS = [
   { key: 'subject', label: 'Subject Tests' },
   { key: 'topic', label: 'Topic Practice' },
 ]
+const SECTION_KEYS = SECTIONS.map((s) => s.key)
 
 function chipStyle(active, isMobile) {
   return {
@@ -175,21 +177,34 @@ function SubjectTestsSection({ exam, studentId, attemptsByPaper, onStart, isMobi
   )
 }
 
-function TopicPracticeSection({ exam, studentId, attemptsByPaper, onStart, isMobile }) {
+function TopicPracticeSection({
+  exam,
+  studentId,
+  attemptsByPaper,
+  onStart,
+  isMobile,
+  initialSubject,
+  initialTopic,
+  initialSubtopic,
+  onTopicParamsChange,
+}) {
   const [tree, setTree] = useState({})
-  const [subject, setSubject] = useState(null)
-  const [topic, setTopic] = useState(null)
-  const [subtopic, setSubtopic] = useState(null)
+  const [subject, setSubject] = useState(initialSubject || null)
+  const [topic, setTopic] = useState(initialTopic || null)
+  const [subtopic, setSubtopic] = useState(initialSubtopic || null)
   const [papers, setPapers] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!exam) return
-    setSubject(null)
-    setTopic(null)
-    setSubtopic(null)
     getPracticeFilters(exam).then((data) => setTree(data.subjects ?? {}))
   }, [exam])
+
+  useEffect(() => {
+    setSubject(initialSubject || null)
+    setTopic(initialTopic || null)
+    setSubtopic(initialSubtopic || null)
+  }, [initialSubject, initialTopic, initialSubtopic])
 
   useEffect(() => {
     if (!subject || !topic) {
@@ -221,7 +236,12 @@ function TopicPracticeSection({ exam, studentId, attemptsByPaper, onStart, isMob
           {subjects.map((s) => (
             <button
               key={s}
-              onClick={() => { setSubject(s); setTopic(null); setSubtopic(null) }}
+              onClick={() => {
+                setSubject(s)
+                setTopic(null)
+                setSubtopic(null)
+                onTopicParamsChange({ subject: s, topic: null, subtopic: null })
+              }}
               style={{ ...chipStyle(subject === s, isMobile), borderRight: '1.5px solid #111' }}
             >
               {s}
@@ -238,7 +258,11 @@ function TopicPracticeSection({ exam, studentId, attemptsByPaper, onStart, isMob
             {topics.map((t) => (
               <button
                 key={t.topic}
-                onClick={() => { setTopic(t.topic); setSubtopic(null) }}
+                onClick={() => {
+                  setTopic(t.topic)
+                  setSubtopic(null)
+                  onTopicParamsChange({ subject, topic: t.topic, subtopic: null })
+                }}
                 style={{ ...chipStyle(topic === t.topic, isMobile), borderRight: '1.5px solid #111' }}
               >
                 {t.topic}
@@ -254,13 +278,22 @@ function TopicPracticeSection({ exam, studentId, attemptsByPaper, onStart, isMob
             Sub-topic (optional — narrows further)
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button onClick={() => setSubtopic(null)} style={{ ...chipStyle(!subtopic, isMobile), borderRight: '1.5px solid #111' }}>
+            <button
+              onClick={() => {
+                setSubtopic(null)
+                onTopicParamsChange({ subject, topic, subtopic: null })
+              }}
+              style={{ ...chipStyle(!subtopic, isMobile), borderRight: '1.5px solid #111' }}
+            >
               All of {topic}
             </button>
             {subtopics.map((st) => (
               <button
                 key={st}
-                onClick={() => setSubtopic(st)}
+                onClick={() => {
+                  setSubtopic(st)
+                  onTopicParamsChange({ subject, topic, subtopic: st })
+                }}
                 style={{ ...chipStyle(subtopic === st, isMobile), borderRight: '1.5px solid #111' }}
               >
                 {st}
@@ -297,17 +330,55 @@ export default function PracticeTests() {
   const { auth } = useAuth()
   const isMobile = useIsMobile()
   const allowedExams = STUDENT_EXAM_MAP[auth?.exam] || []
-  const [exam, setExam] = useState(allowedExams[0] ?? null)
-  const [section, setSection] = useState('mock')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const requestedExam = searchParams.get('exam')
+  const requestedSection = searchParams.get('section')
+  const [exam, setExam] = useState(
+    allowedExams.includes(requestedExam) ? requestedExam : allowedExams[0] ?? null,
+  )
+  const [section, setSection] = useState(
+    SECTION_KEYS.includes(requestedSection) ? requestedSection : 'mock',
+  )
   const [mockPapers, setMockPapers] = useState([])
   const [mockLoading, setMockLoading] = useState(true)
 
   const { instructionsFor, setInstructionsFor, error, handleBeginTest } = useStartTest(auth?.student_id)
   const attemptsByPaper = useAttemptsByPaper(auth?.student_id)
 
+  const setPracticeParams = useCallback((updates) => {
+    const next = new URLSearchParams(searchParams)
+    for (const [key, value] of Object.entries(updates)) {
+      if (value) next.set(key, value)
+      else next.delete(key)
+    }
+    setSearchParams(next, { replace: true })
+  }, [searchParams, setSearchParams])
+
   useEffect(() => {
-    if (!exam && allowedExams.length) setExam(allowedExams[0])
-  }, [allowedExams, exam])
+    if (!allowedExams.length) return
+    if (!exam || !allowedExams.includes(exam)) {
+      const fallback = allowedExams[0]
+      setExam(fallback)
+      setPracticeParams({ exam: fallback, subject: null, topic: null, subtopic: null })
+    }
+  }, [allowedExams, exam, setPracticeParams])
+
+  const handleExamChange = useCallback((nextExam) => {
+    setExam(nextExam)
+    setPracticeParams({ exam: nextExam, subject: null, topic: null, subtopic: null })
+  }, [setPracticeParams])
+
+  const handleSectionChange = useCallback((nextSection) => {
+    setSection(nextSection)
+    setPracticeParams({
+      section: nextSection,
+      ...(nextSection === 'topic' ? {} : { subject: null, topic: null, subtopic: null }),
+    })
+  }, [setPracticeParams])
+
+  const handleTopicParamsChange = useCallback((updates) => {
+    setPracticeParams(updates)
+  }, [setPracticeParams])
 
   return (
     <div style={{ minHeight: '100vh', background: '#fff' }}>
@@ -322,7 +393,7 @@ export default function PracticeTests() {
           <div style={{ overflowX: 'auto', marginBottom: 16, WebkitOverflowScrolling: 'touch' }}>
             <div style={{ display: 'flex', borderRight: '1.5px solid #111', width: 'max-content' }}>
               {allowedExams.map((e) => (
-                <button key={e} style={chipStyle(exam === e, isMobile)} onClick={() => setExam(e)}>
+                <button key={e} style={chipStyle(exam === e, isMobile)} onClick={() => handleExamChange(e)}>
                   {EXAM_LABELS[e] || e}
                 </button>
               ))}
@@ -333,7 +404,7 @@ export default function PracticeTests() {
         <div style={{ overflowX: 'auto', marginBottom: 20, WebkitOverflowScrolling: 'touch' }}>
           <div style={{ display: 'flex', borderRight: '1.5px solid #111', width: 'max-content' }}>
             {SECTIONS.map((s) => (
-              <button key={s.key} style={chipStyle(section === s.key, isMobile)} onClick={() => setSection(s.key)}>
+              <button key={s.key} style={chipStyle(section === s.key, isMobile)} onClick={() => handleSectionChange(s.key)}>
                 {s.label}
               </button>
             ))}
@@ -375,6 +446,10 @@ export default function PracticeTests() {
             attemptsByPaper={attemptsByPaper}
             onStart={setInstructionsFor}
             isMobile={isMobile}
+            initialSubject={searchParams.get('subject')}
+            initialTopic={searchParams.get('topic')}
+            initialSubtopic={searchParams.get('subtopic')}
+            onTopicParamsChange={handleTopicParamsChange}
           />
         )}
       </div>
