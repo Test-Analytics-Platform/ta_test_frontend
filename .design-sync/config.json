@@ -1,0 +1,17 @@
+{
+  "projectId": "0e940e36-8674-4048-bbed-54ac2b753b84",
+  "shape": "package",
+  "pkg": "pariksha-frontend",
+  "globalName": "ParikshaUI",
+  "componentSrcMap": {
+    "OptionButton": "src/components/OptionButton.jsx",
+    "Timer": "src/components/Timer.jsx",
+    "QuestionPalette": "src/components/QuestionPalette.jsx",
+    "QuestionView": "src/components/QuestionView.jsx",
+    "InstructionsModal": "src/components/InstructionsModal.jsx"
+  },
+  "libOverrides": {
+    "source-kit.mjs": "synth-entry export * from only forwards named exports; these components are all export default, so add a basename-derived named re-export per file"
+  },
+  "readmeHeader": ".design-sync/conventions.md"
+}

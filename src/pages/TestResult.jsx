@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { getSession, getSessionReview } from '../api/sessions.js'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
+import { getSession } from '../api/sessions.js'
 import { getPaperDetail } from '../api/papers.js'
+import { getCustomSession, getCustomSessionReview } from '../api/customTestSessions.js'
+import { getSessionReview } from '../api/sessions.js'
 import QuestionView from '../components/QuestionView.jsx'
 import OptionButton from '../components/OptionButton.jsx'
 import { useIsMobile } from '../hooks/useIsMobile.js'
@@ -11,7 +13,10 @@ const EXAM_LABELS = { JEE_MAINS: 'JEE Mains', JEE_ADV: 'JEE Advanced', NEET: 'NE
 export default function TestResult() {
   const { sessionId } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const isMobile = useIsMobile()
+  const sessionType = location.state?.sessionType
+    || sessionStorage.getItem(`pariksha_session_type_${sessionId}`) || 'nta'
   const [session, setSession] = useState(null)
   const [paper, setPaper] = useState(null)
   const [questions, setQuestions] = useState([])
@@ -21,12 +26,13 @@ export default function TestResult() {
 
   useEffect(() => {
     async function load() {
+      const isCustom = sessionType === 'custom'
       const [sess, review] = await Promise.all([
-        getSession(sessionId),
-        getSessionReview(sessionId),
+        isCustom ? getCustomSession(sessionId) : getSession(sessionId),
+        isCustom ? getCustomSessionReview(sessionId) : getSessionReview(sessionId),
       ])
       setSession(sess)
-      const p = await getPaperDetail(sess.paper_id)
+      const p = isCustom ? null : await getPaperDetail(sess.paper_id)
       setQuestions(review)
       setPaper(p)
       const map = {}
@@ -42,7 +48,7 @@ export default function TestResult() {
       setLoading(false)
     }
     load().catch(() => setLoading(false))
-  }, [sessionId])
+  }, [sessionId, sessionType])
 
   if (loading) return <div style={{ padding: 40, color: '#666', fontSize: 14 }}>Loading results...</div>
   if (!session) return null
@@ -54,7 +60,7 @@ export default function TestResult() {
 
   const paperLabel = paper
     ? [EXAM_LABELS[paper.exam] || paper.exam, paper.year, paper.session, paper.shift].filter(Boolean).join(' · ')
-    : null
+    : session?.title ?? null
 
   return (
     <div style={{ minHeight: '100vh', background: '#fff' }}>

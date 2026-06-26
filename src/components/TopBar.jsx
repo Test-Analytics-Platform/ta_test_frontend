@@ -38,6 +38,9 @@ export default function TopBar({ isMobile }) {
           <button onClick={() => navigate('/practice')} style={navBtnStyle(location.pathname === '/practice')}>
             {isMobile ? 'Practice' : 'Practice Tests'}
           </button>
+          <button onClick={() => navigate('/assigned')} style={navBtnStyle(location.pathname === '/assigned')}>
+            {isMobile ? 'Assigned' : 'Assigned Tests'}
+          </button>
           <button onClick={() => navigate('/history')} style={navBtnStyle(location.pathname === '/history')}>
             {isMobile ? 'Tests' : 'My Tests'}
           </button>

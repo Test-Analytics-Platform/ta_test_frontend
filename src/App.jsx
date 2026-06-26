@@ -4,9 +4,11 @@ import ProtectedRoute from './components/ProtectedRoute.jsx'
 import Login from './pages/Login.jsx'
 import PaperBrowser from './pages/PaperBrowser.jsx'
 import PracticeTests from './pages/PracticeTests.jsx'
+import AssignedTests from './pages/AssignedTests.jsx'
 import TestInterface from './pages/TestInterface.jsx'
 import TestResult from './pages/TestResult.jsx'
 import TestHistory from './pages/TestHistory.jsx'
+import ForcePasswordReset from './pages/ForcePasswordReset.jsx'
 
 export default function App() {
   return (
@@ -15,12 +17,20 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route
+            path="/reset-password"
+            element={<ProtectedRoute><ForcePasswordReset /></ProtectedRoute>}
+          />
+          <Route
             path="/papers"
             element={<ProtectedRoute><PaperBrowser /></ProtectedRoute>}
           />
           <Route
             path="/practice"
             element={<ProtectedRoute><PracticeTests /></ProtectedRoute>}
+          />
+          <Route
+            path="/assigned"
+            element={<ProtectedRoute><AssignedTests /></ProtectedRoute>}
           />
           <Route
             path="/test/:sessionId"

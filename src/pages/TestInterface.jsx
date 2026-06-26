@@ -5,14 +5,7 @@ import QuestionPalette from '../components/QuestionPalette.jsx'
 import QuestionView from '../components/QuestionView.jsx'
 import OptionButton from '../components/OptionButton.jsx'
 import { useIsMobile } from '../hooks/useIsMobile.js'
-import {
-  getSession,
-  saveResponse,
-  toggleFlag,
-  submitSession,
-  getSessionResponses,
-} from '../api/sessions.js'
-import { getPaperQuestions, getPaperDetail } from '../api/papers.js'
+import { makeSessionAdapter } from '../api/sessionAdapter.js'
 
 const EXAM_LABELS = { JEE_MAINS: 'JEE Mains', JEE_ADV: 'JEE Advanced', NEET: 'NEET UG' }
 const SAVE_DEBOUNCE_MS = 400
@@ -31,6 +24,14 @@ export default function TestInterface() {
   const navigate = useNavigate()
   const location = useLocation()
   const isMobile = useIsMobile()
+
+  const sessionType = location.state?.sessionType
+    || (sessionStorage.getItem(`pariksha_session_type_${sessionId}`)) || 'nta'
+  const adapterRef = useRef(makeSessionAdapter(sessionType))
+
+  useEffect(() => {
+    try { sessionStorage.setItem(`pariksha_session_type_${sessionId}`, sessionType) } catch { /* ignore */ }
+  }, [sessionId, sessionType])
 
   const [session, setSession] = useState(null)
   const [paper, setPaper] = useState(null)
@@ -59,21 +60,20 @@ export default function TestInterface() {
 
   useEffect(() => {
     async function init() {
+      const adapter = adapterRef.current
       try {
         const [sess, existingResponses] = await Promise.all([
-          getSession(sessionId),
-          getSessionResponses(sessionId),
+          adapter.getSession(sessionId),
+          adapter.getSessionResponses(sessionId),
         ])
         if (sess.status !== 'active') {
-          navigate(`/result/${sessionId}`, { replace: true })
+          navigate(`/result/${sessionId}`, { replace: true, state: { sessionType } })
           return
         }
         setSession(sess)
 
-        const [qs, paperDet] = await Promise.all([
-          getPaperQuestions(sess.paper_id),
-          getPaperDetail(sess.paper_id),
-        ])
+        const qs = await adapter.getQuestions(sess)
+        const paperDet = adapter.getPaperDetail ? await adapter.getPaperDetail(sess) : null
         setQuestions(qs)
         setPaper(paperDet)
 
@@ -138,7 +138,7 @@ export default function TestInterface() {
   const saveQuestionResponse = useCallback(
     async (questionId, selectedOption) => {
       const spent = getTimeSpentSecs(questionId)
-      await saveResponse(sessionId, questionId, selectedOption, spent)
+      await adapterRef.current.saveResponse(sessionId, questionId, selectedOption, spent)
     },
     [getTimeSpentSecs, sessionId],
   )
@@ -256,7 +256,7 @@ export default function TestInterface() {
       const newFlagged = !current.is_flagged
       setResponses((prev) => ({ ...prev, [questionId]: { ...current, is_flagged: newFlagged } }))
       try {
-        await toggleFlag(sessionId, questionId)
+        await adapterRef.current.toggleFlag(sessionId, questionId)
       } catch {
         setResponses((prev) => ({ ...prev, [questionId]: { ...current, is_flagged: !newFlagged } }))
       }
@@ -293,19 +293,19 @@ export default function TestInterface() {
     setSubmitting(true)
     try {
       await flushCurrentQuestion()
-      await submitSession(sessionId)
+      await adapterRef.current.submitSession(sessionId)
       allowHistoryLeaveRef.current = true
       try {
         sessionStorage.removeItem(`pariksha_return_to_${sessionId}`)
       } catch {
         // ignore
       }
-      navigate(`/result/${sessionId}`, { replace: true })
+      navigate(`/result/${sessionId}`, { replace: true, state: { sessionType } })
     } catch (err) {
       setError(err.response?.data?.detail || 'Submit failed. Please try again.')
       setSubmitting(false)
     }
-  }, [flushCurrentQuestion, sessionId, navigate, responses, questions.length])
+  }, [flushCurrentQuestion, sessionId, navigate, responses, questions.length, sessionType])
 
   const handleExpire = useCallback(() => {
     if (expiringRef.current) return
@@ -314,7 +314,7 @@ export default function TestInterface() {
     alert('Time is up! Your test is being submitted.')
     flushCurrentQuestion()
       .catch(() => {})
-      .then(() => submitSession(sessionId))
+      .then(() => adapterRef.current.submitSession(sessionId))
       .then(() => {
         allowHistoryLeaveRef.current = true
         try {
@@ -322,13 +322,13 @@ export default function TestInterface() {
         } catch {
           // ignore
         }
-        navigate(`/result/${sessionId}`, { replace: true })
+        navigate(`/result/${sessionId}`, { replace: true, state: { sessionType } })
       })
       .catch(() => {
         allowHistoryLeaveRef.current = true
-        navigate(`/result/${sessionId}`, { replace: true })
+        navigate(`/result/${sessionId}`, { replace: true, state: { sessionType } })
       })
-  }, [flushCurrentQuestion, sessionId, navigate])
+  }, [flushCurrentQuestion, sessionId, navigate, sessionType])
 
   if (loading) {
     return (
@@ -359,12 +359,14 @@ export default function TestInterface() {
     ? new Set(currentResp.selected_option.split(','))
     : null
 
-  const paperLabel = [
-    EXAM_LABELS[paper?.exam] || paper?.exam,
-    paper?.year,
-    paper?.session,
-    paper?.shift,
-  ].filter(Boolean).join(' · ')
+  const paperLabel = sessionType === 'custom'
+    ? (session?.title ?? '')
+    : [
+        EXAM_LABELS[paper?.exam] || paper?.exam,
+        paper?.year,
+        paper?.session,
+        paper?.shift,
+      ].filter(Boolean).join(' · ')
 
   const answeredCount = Object.values(responses).filter((r) => r.selected_option != null).length
 
