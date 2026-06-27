@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { getStudentSessions } from '../api/sessions.js'
+import { getCustomStudentSessions } from '../api/customTestSessions.js'
 import { useIsMobile } from '../hooks/useIsMobile.js'
 
 const EXAM_LABELS = { JEE_MAINS: 'JEE Mains', JEE_ADV: 'JEE Advanced', NEET: 'NEET UG' }
@@ -21,8 +22,26 @@ export default function TestHistory() {
 
   useEffect(() => {
     if (!auth?.student_id) return
-    getStudentSessions(auth.student_id)
-      .then(setSessions)
+    Promise.all([
+      getStudentSessions(auth.student_id),
+      getCustomStudentSessions(auth.student_id),
+    ])
+      .then(([nta, custom]) => {
+        const customRows = custom.map((s) => ({
+          session_id: s.session_id,
+          kind: 'custom',
+          title: s.title,
+          started_at: s.started_at,
+          status: s.status,
+          score_total: s.score_total,
+          score_max: s.score_max,
+        }))
+        const ntaRows = nta.map((s) => ({ ...s, kind: 'nta' }))
+        const merged = [...ntaRows, ...customRows].sort(
+          (a, b) => new Date(b.started_at ?? 0) - new Date(a.started_at ?? 0)
+        )
+        setSessions(merged)
+      })
       .finally(() => setLoading(false))
   }, [auth?.student_id])
 
@@ -80,13 +99,13 @@ export default function TestHistory() {
                     cursor: s.status === 'submitted' ? 'pointer' : 'default',
                     minHeight: 64,
                   }}
-                  onClick={() => s.status === 'submitted' && navigate(`/result/${s.session_id}`)}
+                  onClick={() => s.status === 'submitted' && navigate(`/result/${s.session_id}`, { state: { sessionType: s.kind === 'custom' ? 'custom' : 'nta' } })}
                 >
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: isMobile ? 13 : 14, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {EXAM_LABELS[s.exam] || s.exam} {s.year}
-                      {s.session && ` · ${s.session}`}
-                      {s.shift && ` ${s.shift}`}
+                      {s.kind === 'custom'
+                        ? s.title
+                        : <>{EXAM_LABELS[s.exam] || s.exam} {s.year}{s.session && ` · ${s.session}`}{s.shift && ` ${s.shift}`}</>}
                     </div>
                     <div style={{ fontSize: 11, color: '#666', marginTop: 3 }}>
                       {new Date(s.started_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
@@ -105,7 +124,7 @@ export default function TestHistory() {
 
                   {s.status === 'active' && (
                     <button
-                      onClick={(e) => { e.stopPropagation(); navigate(`/test/${s.session_id}`) }}
+                      onClick={(e) => { e.stopPropagation(); navigate(`/test/${s.session_id}`, { state: { sessionType: s.kind === 'custom' ? 'custom' : 'nta' } }) }}
                       style={{
                         border: '1.5px solid #0F6E56', background: '#0F6E56', color: '#fff',
                         padding: isMobile ? '8px 14px' : '5px 14px',

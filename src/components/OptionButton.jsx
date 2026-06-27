@@ -3,6 +3,13 @@ import katex from 'katex'
 function renderMath(text) {
   if (!text) return ''
   return text
+    .replace(/\\\[([\s\S]*?)\\\]/g, (_, math) => {
+      try {
+        return `<span class="katex-display">${katex.renderToString(math.trim(), { displayMode: true, throwOnError: false })}</span>`
+      } catch {
+        return '[math]'
+      }
+    })
     .replace(/\\\(([\s\S]*?)\\\)/g, (_, math) => {
       try {
         return katex.renderToString(math.trim(), { displayMode: false, throwOnError: false })

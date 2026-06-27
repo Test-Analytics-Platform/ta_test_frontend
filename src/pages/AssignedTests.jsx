@@ -13,6 +13,7 @@ export default function AssignedTests() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [starting, setStarting] = useState(null)
+  const [, setNowTick] = useState(0)
 
   useEffect(() => {
     if (!auth?.student_id) return
@@ -21,6 +22,11 @@ export default function AssignedTests() {
       .catch(() => setError('Failed to load assigned tests'))
       .finally(() => setLoading(false))
   }, [auth?.student_id])
+
+  useEffect(() => {
+    const interval = setInterval(() => setNowTick((t) => t + 1), 15000)
+    return () => clearInterval(interval)
+  }, [])
 
   async function handleStart(test) {
     if (test.session_id) {

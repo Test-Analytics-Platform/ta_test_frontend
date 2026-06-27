@@ -193,29 +193,27 @@ export default function TestResult() {
                 {isExpanded && (
                   <div style={{ borderTop: '1px solid #ddd' }}>
                     <QuestionView question={q} questionNumber={q.question_number} />
-                    {q.options?.length > 0 && (
-                      <div style={{ padding: isMobile ? '0 14px 16px' : '0 24px 20px' }}>
-                        <div style={{ display: 'flex', gap: isMobile ? 8 : 16, marginBottom: 10, fontSize: 12, color: '#444', flexWrap: 'wrap' }}>
-                          <span>Your answer: <strong>{q.selected_option || 'Skipped'}</strong></span>
-                          <span>Correct: <strong>{q.correct_option || 'N/A'}</strong></span>
-                        </div>
-                        {q.options.map((opt) => {
-                          let state = 'default'
-                          if (opt.is_correct) state = 'correct'
-                          if (opt.is_selected && !opt.is_correct) state = 'wrong'
-                          return (
-                            <OptionButton
-                              key={opt.option_id}
-                              label={opt.option_label}
-                              text={opt.option_text}
-                              hasImage={opt.has_image}
-                              imageUrl={opt.image_url}
-                              state={state}
-                            />
-                          )
-                        })}
+                    <div style={{ padding: isMobile ? '0 14px 16px' : '0 24px 20px' }}>
+                      <div style={{ display: 'flex', gap: isMobile ? 8 : 16, marginBottom: 10, fontSize: 12, color: '#444', flexWrap: 'wrap' }}>
+                        <span>Your answer: <strong>{q.selected_option || 'Skipped'}</strong></span>
+                        <span>Correct: <strong>{q.correct_option || 'N/A'}</strong></span>
                       </div>
-                    )}
+                      {q.options?.length > 0 && q.options.map((opt) => {
+                        let state = 'default'
+                        if (opt.is_correct) state = 'correct'
+                        if (opt.is_selected && !opt.is_correct) state = 'wrong'
+                        return (
+                          <OptionButton
+                            key={opt.option_id}
+                            label={opt.option_label}
+                            text={opt.option_text}
+                            hasImage={opt.has_image}
+                            imageUrl={opt.image_url}
+                            state={state}
+                          />
+                        )
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
