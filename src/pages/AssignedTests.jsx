@@ -42,6 +42,17 @@ export default function AssignedTests() {
     }
   }
 
+  function windowState(test) {
+    const now = new Date()
+    if (test.available_from && now < new Date(test.available_from)) {
+      return { blocked: true, label: `Opens ${new Date(test.available_from).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}` }
+    }
+    if (test.available_until && now > new Date(test.available_until)) {
+      return { blocked: true, label: 'Window closed' }
+    }
+    return { blocked: false, label: null }
+  }
+
   return (
     <div style={{ minHeight: '100vh', background: '#fff' }}>
       <TopBar isMobile={isMobile} />
@@ -66,6 +77,8 @@ export default function AssignedTests() {
             {tests.map((t, i) => {
               const isSubmitted = t.session_status === 'submitted' || t.session_status === 'timed_out'
               const isActive = t.session_status === 'active'
+              const hasStarted = isSubmitted || isActive
+              const win = !hasStarted ? windowState(t) : { blocked: false, label: null }
               return (
                 <div
                   key={t.assignment_id}
@@ -94,12 +107,17 @@ export default function AssignedTests() {
                       ✓ Completed
                     </span>
                   )}
+                  {win.blocked && (
+                    <span style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700, background: '#FAEEDA', color: '#854F0B', padding: '2px 7px', alignSelf: 'flex-start' }}>
+                      {win.label}
+                    </span>
+                  )}
                   <button
                     onClick={() => handleStart(t)}
-                    disabled={starting === t.assignment_id}
+                    disabled={starting === t.assignment_id || win.blocked}
                     style={{
                       marginTop: 4,
-                      background: isSubmitted ? '#fff' : '#0F6E56',
+                      background: isSubmitted ? '#fff' : win.blocked ? '#ccc' : '#0F6E56',
                       color: isSubmitted ? '#0F6E56' : '#fff',
                       border: isSubmitted ? '1.5px solid #0F6E56' : 'none',
                       padding: isMobile ? '12px 0' : '9px 0',
@@ -107,11 +125,11 @@ export default function AssignedTests() {
                       fontWeight: 600,
                       textTransform: 'uppercase',
                       letterSpacing: '0.1em',
-                      cursor: starting === t.assignment_id ? 'not-allowed' : 'pointer',
+                      cursor: starting === t.assignment_id || win.blocked ? 'not-allowed' : 'pointer',
                       fontFamily: 'inherit',
                     }}
                   >
-                    {isSubmitted ? 'View Result' : isActive ? 'Resume Test' : starting === t.assignment_id ? 'Starting...' : 'Start Test'}
+                    {isSubmitted ? 'View Result' : isActive ? 'Resume Test' : win.blocked ? win.label : starting === t.assignment_id ? 'Starting...' : 'Start Test'}
                   </button>
                 </div>
               )

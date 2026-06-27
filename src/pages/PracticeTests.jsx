@@ -98,7 +98,54 @@ function PaperGrid({ papers, isMobile, children }) {
   )
 }
 
+const MOCKS_PER_PAGE = 12
+
+function Pagination({ page, pageCount, onChange, isMobile }) {
+  if (pageCount <= 1) return null
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: 20 }}>
+      <button
+        onClick={() => onChange(page - 1)}
+        disabled={page === 0}
+        style={{
+          border: '1.5px solid #111',
+          background: '#fff',
+          color: page === 0 ? '#bbb' : '#111',
+          padding: isMobile ? '8px 14px' : '6px 14px',
+          fontSize: 11,
+          textTransform: 'uppercase',
+          letterSpacing: '0.06em',
+          cursor: page === 0 ? 'not-allowed' : 'pointer',
+          fontFamily: 'inherit',
+        }}
+      >
+        Prev
+      </button>
+      <span style={{ fontSize: 12, color: '#555' }}>Page {page + 1} of {pageCount}</span>
+      <button
+        onClick={() => onChange(page + 1)}
+        disabled={page >= pageCount - 1}
+        style={{
+          border: '1.5px solid #111',
+          background: '#fff',
+          color: page >= pageCount - 1 ? '#bbb' : '#111',
+          padding: isMobile ? '8px 14px' : '6px 14px',
+          fontSize: 11,
+          textTransform: 'uppercase',
+          letterSpacing: '0.06em',
+          cursor: page >= pageCount - 1 ? 'not-allowed' : 'pointer',
+          fontFamily: 'inherit',
+        }}
+      >
+        Next
+      </button>
+    </div>
+  )
+}
+
 function FullMocksSection({ exam, studentId, attemptsByPaper, onStart, isMobile, loading, setLoading, papers, setPapers }) {
+  const [page, setPage] = useState(0)
+
   useEffect(() => {
     if (!exam) return
     setLoading(true)
@@ -107,27 +154,39 @@ function FullMocksSection({ exam, studentId, attemptsByPaper, onStart, isMobile,
       .finally(() => setLoading(false))
   }, [exam, studentId])
 
+  useEffect(() => { setPage(0) }, [exam])
+
   if (loading) return <div style={{ color: '#666', fontSize: 14, padding: '32px 0' }}>Loading...</div>
+
+  const pageCount = Math.max(1, Math.ceil(papers.length / MOCKS_PER_PAGE))
+  const pageSafe = Math.min(page, pageCount - 1)
+  const pagePapers = papers.slice(pageSafe * MOCKS_PER_PAGE, pageSafe * MOCKS_PER_PAGE + MOCKS_PER_PAGE)
+
   return (
-    <PaperGrid papers={papers} isMobile={isMobile}>
-      {papers.map((p) => (
-        <PaperCard
-          key={p.paper_id}
-          p={p}
-          name={`Full Mock #${p.shift}`}
-          subLabel={EXAM_LABELS[p.exam] || p.exam}
-          attempt={attemptsByPaper[p.paper_id]}
-          onStart={() => onStart(p)}
-          isMobile={isMobile}
-        />
-      ))}
-    </PaperGrid>
+    <div>
+      <PaperGrid papers={pagePapers} isMobile={isMobile}>
+        {pagePapers.map((p) => (
+          <PaperCard
+            key={p.paper_id}
+            p={p}
+            name={`Full Mock #${p.shift}`}
+            subLabel={EXAM_LABELS[p.exam] || p.exam}
+            attempt={attemptsByPaper[p.paper_id]}
+            onStart={() => onStart(p)}
+            isMobile={isMobile}
+          />
+        ))}
+      </PaperGrid>
+      <Pagination page={pageSafe} pageCount={pageCount} onChange={setPage} isMobile={isMobile} />
+    </div>
   )
 }
 
 function SubjectTestsSection({ exam, studentId, attemptsByPaper, onStart, isMobile }) {
   const [papers, setPapers] = useState([])
   const [loading, setLoading] = useState(true)
+  const [activeSubject, setActiveSubject] = useState(null)
+  const [page, setPage] = useState(0)
 
   useEffect(() => {
     if (!exam) return
@@ -136,6 +195,8 @@ function SubjectTestsSection({ exam, studentId, attemptsByPaper, onStart, isMobi
       .then(setPapers)
       .finally(() => setLoading(false))
   }, [exam, studentId])
+
+  useEffect(() => { setActiveSubject(null); setPage(0) }, [exam])
 
   if (loading) return <div style={{ color: '#666', fontSize: 14, padding: '32px 0' }}>Loading...</div>
 
@@ -148,31 +209,46 @@ function SubjectTestsSection({ exam, studentId, attemptsByPaper, onStart, isMobi
     bySubject[subject].sort((a, b) => parseInt(a.shift.match(/\d+$/)) - parseInt(b.shift.match(/\d+$/)))
   }
 
-  if (Object.keys(bySubject).length === 0) {
+  const subjects = Object.keys(bySubject).sort()
+  if (subjects.length === 0) {
     return <div style={{ color: '#666', fontSize: 14, padding: '32px 0' }}>Nothing here yet.</div>
   }
 
+  const subject = subjects.includes(activeSubject) ? activeSubject : subjects[0]
+  const subjectPapers = bySubject[subject] ?? []
+  const pageCount = Math.max(1, Math.ceil(subjectPapers.length / MOCKS_PER_PAGE))
+  const pageSafe = Math.min(page, pageCount - 1)
+  const pagePapers = subjectPapers.slice(pageSafe * MOCKS_PER_PAGE, pageSafe * MOCKS_PER_PAGE + MOCKS_PER_PAGE)
+
   return (
     <div>
-      {Object.entries(bySubject).map(([subject, subjectPapers]) => (
-        <div key={subject} style={{ marginBottom: 24 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
-            {subject}
-          </div>
-          <PaperGrid papers={subjectPapers} isMobile={isMobile}>
-            {subjectPapers.map((p, i) => (
-              <PaperCard
-                key={p.paper_id}
-                p={p}
-                name={`${subject} Test #${i + 1}`}
-                attempt={attemptsByPaper[p.paper_id]}
-                onStart={() => onStart(p)}
-                isMobile={isMobile}
-              />
-            ))}
-          </PaperGrid>
-        </div>
-      ))}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
+        {subjects.map((s) => (
+          <button
+            key={s}
+            onClick={() => { setActiveSubject(s); setPage(0) }}
+            style={{ ...chipStyle(subject === s, isMobile), borderRight: '1.5px solid #111' }}
+          >
+            {s} ({bySubject[s].length})
+          </button>
+        ))}
+      </div>
+      <PaperGrid papers={pagePapers} isMobile={isMobile}>
+        {pagePapers.map((p) => {
+          const i = subjectPapers.indexOf(p)
+          return (
+            <PaperCard
+              key={p.paper_id}
+              p={p}
+              name={`${subject} Test #${i + 1}`}
+              attempt={attemptsByPaper[p.paper_id]}
+              onStart={() => onStart(p)}
+              isMobile={isMobile}
+            />
+          )
+        })}
+      </PaperGrid>
+      <Pagination page={pageSafe} pageCount={pageCount} onChange={setPage} isMobile={isMobile} />
     </div>
   )
 }
@@ -194,6 +270,7 @@ function TopicPracticeSection({
   const [subtopic, setSubtopic] = useState(initialSubtopic || null)
   const [papers, setPapers] = useState([])
   const [loading, setLoading] = useState(true)
+  const [page, setPage] = useState(0)
 
   useEffect(() => {
     if (!exam) return
@@ -206,8 +283,10 @@ function TopicPracticeSection({
     setSubtopic(initialSubtopic || null)
   }, [initialSubject, initialTopic, initialSubtopic])
 
+  useEffect(() => { setPage(0) }, [subject, topic, subtopic])
+
   useEffect(() => {
-    if (!subject || !topic) {
+    if (!subject) {
       setPapers([])
       return
     }
@@ -217,7 +296,7 @@ function TopicPracticeSection({
       exam,
       paper_kind: 'topic_test',
       filter_subject: subject,
-      filter_topic: topic,
+      ...(topic ? { filter_topic: topic } : {}),
       ...(subtopic ? { filter_subtopic: subtopic } : {}),
     })
       .then((rows) => setPapers(subtopic ? rows : rows.filter((p) => !p.filter_subtopic)))
@@ -227,6 +306,10 @@ function TopicPracticeSection({
   const subjects = Object.keys(tree).sort()
   const topics = subject ? (tree[subject] ?? []) : []
   const subtopics = topic ? (topics.find((t) => t.topic === topic)?.sub_topics ?? []) : []
+
+  const pageCount = Math.max(1, Math.ceil(papers.length / MOCKS_PER_PAGE))
+  const pageSafe = Math.min(page, pageCount - 1)
+  const pagePapers = papers.slice(pageSafe * MOCKS_PER_PAGE, pageSafe * MOCKS_PER_PAGE + MOCKS_PER_PAGE)
 
   return (
     <div>
@@ -255,6 +338,16 @@ function TopicPracticeSection({
         <div style={{ marginBottom: 16 }}>
           <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#666', marginBottom: 6 }}>Topic</div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button
+              onClick={() => {
+                setTopic(null)
+                setSubtopic(null)
+                onTopicParamsChange({ subject, topic: null, subtopic: null })
+              }}
+              style={{ ...chipStyle(!topic, isMobile), borderRight: '1.5px solid #111' }}
+            >
+              All Topics
+            </button>
             {topics.map((t) => (
               <button
                 key={t.topic}
@@ -303,23 +396,26 @@ function TopicPracticeSection({
         </div>
       )}
 
-      {topic && (
+      {subject && (
         loading ? (
           <div style={{ color: '#666', fontSize: 14, padding: '16px 0' }}>Loading...</div>
         ) : (
-          <PaperGrid papers={papers} isMobile={isMobile}>
-            {papers.map((p) => (
-              <PaperCard
-                key={p.paper_id}
-                p={p}
-                name={p.filter_subtopic || p.filter_topic}
-                subLabel={p.filter_subtopic ? p.filter_topic : subject}
-                attempt={attemptsByPaper[p.paper_id]}
-                onStart={() => onStart(p)}
-                isMobile={isMobile}
-              />
-            ))}
-          </PaperGrid>
+          <div>
+            <PaperGrid papers={pagePapers} isMobile={isMobile}>
+              {pagePapers.map((p) => (
+                <PaperCard
+                  key={p.paper_id}
+                  p={p}
+                  name={p.filter_subtopic || p.filter_topic}
+                  subLabel={p.filter_subtopic ? p.filter_topic : subject}
+                  attempt={attemptsByPaper[p.paper_id]}
+                  onStart={() => onStart(p)}
+                  isMobile={isMobile}
+                />
+              ))}
+            </PaperGrid>
+            <Pagination page={pageSafe} pageCount={pageCount} onChange={setPage} isMobile={isMobile} />
+          </div>
         )
       )}
     </div>
