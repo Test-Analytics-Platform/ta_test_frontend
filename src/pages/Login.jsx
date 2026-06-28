@@ -18,7 +18,7 @@ export default function Login() {
     try {
       const data = await loginStudent(studentId, password)
       login(data)
-      navigate('/papers')
+      navigate('/assigned')
     } catch (err) {
       setError(err.response?.data?.detail || 'Login failed')
     } finally {

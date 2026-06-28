@@ -27,7 +27,7 @@ export default function ForcePasswordReset() {
     try {
       await changeStudentPassword(oldPassword, newPassword)
       login({ ...auth, must_reset_password: false })
-      navigate('/papers', { replace: true })
+      navigate('/assigned', { replace: true })
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to change password')
     } finally {

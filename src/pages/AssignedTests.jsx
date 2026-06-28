@@ -1,9 +1,20 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
-import { getAssignedTests, startCustomSession } from '../api/customTestSessions.js'
+import { getAssignedTests } from '../api/assignments.js'
+import { startCustomSession } from '../api/customTestSessions.js'
+import { startSession } from '../api/sessions.js'
 import { useIsMobile } from '../hooks/useIsMobile.js'
 import TopBar from '../components/TopBar.jsx'
+
+// Short uppercase label per test type, shown as a badge alongside the exam.
+const TYPE_LABEL = {
+  custom: 'Custom',
+  pyq: 'PYQ',
+  mock: 'Full Mock',
+  subject: 'Subject',
+  topic: 'Topic',
+}
 
 export default function AssignedTests() {
   const { auth } = useAuth()
@@ -29,19 +40,25 @@ export default function AssignedTests() {
   }, [])
 
   async function handleStart(test) {
+    // sessionType drives which adapter TestInterface/TestResult use: 'custom'
+    // for custom tests, 'nta' for every paper type (pyq/mock/subject/topic).
+    const sessionType = test.type === 'custom' ? 'custom' : 'nta'
+
     if (test.session_id) {
       if (test.session_status === 'active') {
-        navigate(`/test/${test.session_id}`, { state: { sessionType: 'custom' } })
+        navigate(`/test/${test.session_id}`, { state: { sessionType } })
       } else {
-        navigate(`/result/${test.session_id}`, { state: { sessionType: 'custom' } })
+        navigate(`/result/${test.session_id}`, { state: { sessionType } })
       }
       return
     }
     setStarting(test.assignment_id)
     setError(null)
     try {
-      const session = await startCustomSession(test.assignment_id, auth.student_id)
-      navigate(`/test/${session.session_id}`, { state: { sessionType: 'custom' } })
+      const session = test.type === 'custom'
+        ? await startCustomSession(test.assignment_id, auth.student_id)
+        : await startSession(test.target_id, auth.student_id)
+      navigate(`/test/${session.session_id}`, { state: { sessionType } })
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to start test')
       setStarting(null)
@@ -100,6 +117,9 @@ export default function AssignedTests() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                     <span style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', background: '#E1F5EE', color: '#085041', border: '1px solid #0F6E56', padding: '2px 7px' }}>
                       {t.exam}
+                    </span>
+                    <span style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', background: '#111', color: '#fff', padding: '2px 7px' }}>
+                      {TYPE_LABEL[t.type] ?? t.type}
                     </span>
                     <span style={{ fontSize: 16, fontWeight: 600 }}>{t.title}</span>
                   </div>

@@ -52,7 +52,7 @@ export default function TestInterface() {
   const expiringRef = useRef(false)
   const allowHistoryLeaveRef = useRef(false)
   const flushCurrentQuestionRef = useRef(null)
-  const returnToRef = useRef(location.state?.returnTo || getStoredReturnTo(sessionId) || '/practice')
+  const returnToRef = useRef(location.state?.returnTo || getStoredReturnTo(sessionId) || '/assigned')
 
   useEffect(() => {
     responsesRef.current = responses

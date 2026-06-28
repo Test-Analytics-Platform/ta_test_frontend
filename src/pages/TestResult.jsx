@@ -79,7 +79,7 @@ export default function TestResult() {
           {paperLabel && <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{paperLabel}</div>}
         </div>
         <button
-          onClick={() => navigate('/papers')}
+          onClick={() => navigate('/assigned')}
           style={{
             border: '1.5px solid #111', background: '#fff',
             padding: isMobile ? '8px 12px' : '5px 14px',
@@ -87,7 +87,7 @@ export default function TestResult() {
             textTransform: 'uppercase', letterSpacing: '0.08em', cursor: 'pointer', fontFamily: 'inherit',
           }}
         >
-          ← Papers
+          ← Assigned
         </button>
       </div>
 
