@@ -2,7 +2,7 @@
 // (teacher-assigned tests) behind one interface so TestInterface.jsx doesn't need
 // to know which backend pipeline it's talking to. Both produce the same session/
 // question/option shape; only the underlying paper_id vs test_id differs.
-import { getSession, saveResponse, toggleFlag, submitSession, getSessionResponses } from './sessions.js'
+import { getSession, saveResponse, toggleFlag, submitSession, getSessionResponses, warnTabSwitch } from './sessions.js'
 import { getPaperQuestions, getPaperDetail } from './papers.js'
 import {
   getCustomSession,
@@ -11,6 +11,7 @@ import {
   submitCustomSession,
   getCustomSessionResponses,
   getCustomSessionQuestions,
+  warnCustomTabSwitch,
 } from './customTestSessions.js'
 
 export function makeSessionAdapter(sessionType) {
@@ -21,6 +22,7 @@ export function makeSessionAdapter(sessionType) {
       saveResponse: saveCustomResponse,
       toggleFlag: toggleCustomFlag,
       submitSession: submitCustomSession,
+      warnTabSwitch: warnCustomTabSwitch,
       getQuestions: (session) => getCustomSessionQuestions(session.session_id),
       getPaperLabel: (session) => session.title ?? 'Custom Test',
     }
@@ -31,6 +33,7 @@ export function makeSessionAdapter(sessionType) {
     saveResponse,
     toggleFlag,
     submitSession,
+    warnTabSwitch,
     getQuestions: (session) => getPaperQuestions(session.paper_id),
     getPaperDetail: (session) => getPaperDetail(session.paper_id),
     getPaperLabel: (_session, paper) => paper,

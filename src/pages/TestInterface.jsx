@@ -5,6 +5,7 @@ import QuestionPalette from '../components/QuestionPalette.jsx'
 import QuestionView from '../components/QuestionView.jsx'
 import OptionButton from '../components/OptionButton.jsx'
 import { useIsMobile } from '../hooks/useIsMobile.js'
+import { useTabWarning } from '../hooks/useTabWarning.js'
 import { makeSessionAdapter } from '../api/sessionAdapter.js'
 
 const EXAM_LABELS = { JEE_MAINS: 'JEE Mains', JEE_ADV: 'JEE Advanced', NEET: 'NEET UG' }
@@ -43,6 +44,7 @@ export default function TestInterface() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
   const [paletteOpen, setPaletteOpen] = useState(false)
+  const [tabWarning, setTabWarning] = useState(null) // 1 or 2 — shown in banner
 
   const saveTimerRef = useRef(null)
   const pendingSaveRef = useRef(null)
@@ -330,6 +332,41 @@ export default function TestInterface() {
       })
   }, [flushCurrentQuestion, sessionId, navigate, sessionType])
 
+  const handleTabWarn = useCallback((count) => {
+    setTabWarning(count)
+    adapterRef.current.warnTabSwitch(sessionId).catch(() => {})
+  }, [sessionId])
+
+  const handleTabTerminate = useCallback(() => {
+    if (expiringRef.current) return
+    expiringRef.current = true
+    setSubmitting(true)
+    setTabWarning(null)
+    adapterRef.current.warnTabSwitch(sessionId).catch(() => {})
+    flushCurrentQuestion()
+      .catch(() => {})
+      .then(() => adapterRef.current.submitSession(sessionId, { terminatedBy: 'tab_switch' }))
+      .then(() => {
+        allowHistoryLeaveRef.current = true
+        try {
+          sessionStorage.removeItem(`pariksha_return_to_${sessionId}`)
+        } catch {
+          // ignore
+        }
+        navigate(`/result/${sessionId}`, { replace: true, state: { sessionType, terminatedBy: 'tab_switch' } })
+      })
+      .catch(() => {
+        allowHistoryLeaveRef.current = true
+        navigate(`/result/${sessionId}`, { replace: true, state: { sessionType, terminatedBy: 'tab_switch' } })
+      })
+  }, [flushCurrentQuestion, sessionId, navigate, sessionType])
+
+  useTabWarning({
+    onWarn: handleTabWarn,
+    onTerminate: handleTabTerminate,
+    active: !!session && !submitting,
+  })
+
   if (loading) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', color: '#666', fontSize: 14 }}>
@@ -423,6 +460,44 @@ export default function TestInterface() {
           </button>
         </div>
       </header>
+
+      {/* ── Tab-switch warning banner ── */}
+      {tabWarning && (
+        <div
+          style={{
+            background: '#854F0B',
+            color: '#fff',
+            padding: '10px 20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+            flexShrink: 0,
+            fontSize: 13,
+          }}
+        >
+          <span>
+            <strong>Warning {tabWarning}/2:</strong> Tab switch detected. A third switch will auto-submit your test.
+          </span>
+          <button
+            onClick={() => setTabWarning(null)}
+            style={{
+              background: 'none',
+              border: '1px solid rgba(255,255,255,0.5)',
+              color: '#fff',
+              padding: '4px 12px',
+              fontSize: 11,
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+              textTransform: 'uppercase',
+              letterSpacing: '0.06em',
+              flexShrink: 0,
+            }}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* ── Body ── */}
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>

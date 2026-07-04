@@ -13,8 +13,15 @@ export async function getSession(sessionId) {
   return data
 }
 
-export async function submitSession(sessionId) {
-  const { data } = await client.post(`/test-sessions/${sessionId}/submit`)
+export async function submitSession(sessionId, { terminatedBy } = {}) {
+  const { data } = await client.post(`/test-sessions/${sessionId}/submit`, {
+    terminated_by: terminatedBy ?? null,
+  })
+  return data
+}
+
+export async function warnTabSwitch(sessionId) {
+  const { data } = await client.post(`/test-sessions/${sessionId}/warn`)
   return data
 }
 

@@ -17,6 +17,7 @@ export default function TestResult() {
   const isMobile = useIsMobile()
   const sessionType = location.state?.sessionType
     || sessionStorage.getItem(`pariksha_session_type_${sessionId}`) || 'nta'
+  const terminatedByState = location.state?.terminatedBy
   const [session, setSession] = useState(null)
   const [paper, setPaper] = useState(null)
   const [questions, setQuestions] = useState([])
@@ -53,6 +54,7 @@ export default function TestResult() {
   if (loading) return <div style={{ padding: 40, color: '#666', fontSize: 14 }}>Loading results...</div>
   if (!session) return null
 
+  const terminatedBy = session.terminated_by || terminatedByState
   const correct = Object.values(responses).filter((r) => r.is_correct === true).length
   const wrong = Object.values(responses).filter((r) => r.is_correct === false).length
   const skipped = questions.length - correct - wrong
@@ -90,6 +92,24 @@ export default function TestResult() {
           ← Assigned
         </button>
       </div>
+
+      {terminatedBy === 'tab_switch' && (
+        <div
+          style={{
+            background: '#A32D2D',
+            color: '#fff',
+            padding: isMobile ? '12px 16px' : '14px 24px',
+            fontSize: 13,
+            lineHeight: 1.5,
+            borderBottom: '1.5px solid #111',
+          }}
+        >
+          <div style={{ fontWeight: 700, marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.06em', fontSize: 11 }}>
+            Test Terminated
+          </div>
+          This test was automatically submitted after 3 tab-switch violations were detected. Your answers up to that point have been saved and scored below.
+        </div>
+      )}
 
       <div style={{ padding: isMobile ? '16px' : '24px' }}>
         {/* Score summary — 2x2 on mobile, 1x4 on desktop */}

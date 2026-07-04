@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback } from 'react'
+import { createContext, useContext, useState, useCallback, useEffect } from 'react'
 
 const AuthContext = createContext(null)
 
@@ -20,6 +20,22 @@ export function AuthProvider({ children }) {
   const logout = useCallback(() => {
     localStorage.removeItem('ta_test_auth')
     setAuth(null)
+  }, [])
+
+  // Listen for token refresh and forced logout events dispatched by the axios interceptor
+  useEffect(() => {
+    function onTokensUpdated(e) {
+      setAuth(e.detail)
+    }
+    function onLogout() {
+      setAuth(null)
+    }
+    window.addEventListener('ta:tokens-updated', onTokensUpdated)
+    window.addEventListener('ta:logout', onLogout)
+    return () => {
+      window.removeEventListener('ta:tokens-updated', onTokensUpdated)
+      window.removeEventListener('ta:logout', onLogout)
+    }
   }, [])
 
   return (
