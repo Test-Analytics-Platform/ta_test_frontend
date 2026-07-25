@@ -20,8 +20,9 @@ export async function submitSession(sessionId, { terminatedBy } = {}) {
   return data
 }
 
-export async function warnTabSwitch(sessionId) {
-  const { data } = await client.post(`/test-sessions/${sessionId}/warn`)
+export async function warnTabSwitch(sessionId, warningCount) {
+  const body = warningCount == null ? undefined : { warning_count: warningCount }
+  const { data } = await client.post(`/test-sessions/${sessionId}/warn`, body)
   return data
 }
 

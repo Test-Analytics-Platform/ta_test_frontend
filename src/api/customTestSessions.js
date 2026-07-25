@@ -25,8 +25,9 @@ export async function submitCustomSession(sessionId, { terminatedBy } = {}) {
   return data
 }
 
-export async function warnCustomTabSwitch(sessionId) {
-  const { data } = await client.post(`/custom-test-sessions/${sessionId}/warn`)
+export async function warnCustomTabSwitch(sessionId, warningCount) {
+  const body = warningCount == null ? undefined : { warning_count: warningCount }
+  const { data } = await client.post(`/custom-test-sessions/${sessionId}/warn`, body)
   return data
 }
 

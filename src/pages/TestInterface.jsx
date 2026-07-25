@@ -5,7 +5,7 @@ import QuestionPalette from '../components/QuestionPalette.jsx'
 import QuestionView from '../components/QuestionView.jsx'
 import OptionButton from '../components/OptionButton.jsx'
 import { useIsMobile } from '../hooks/useIsMobile.js'
-import { useTabWarning } from '../hooks/useTabWarning.js'
+import { getPersistedTabWarningCount, useTabWarning } from '../hooks/useTabWarning.js'
 import { makeSessionAdapter } from '../api/sessionAdapter.js'
 
 const EXAM_LABELS = { JEE_MAINS: 'JEE Mains', JEE_ADV: 'JEE Advanced', NEET: 'NEET UG' }
@@ -54,7 +54,34 @@ export default function TestInterface() {
   const expiringRef = useRef(false)
   const allowHistoryLeaveRef = useRef(false)
   const flushCurrentQuestionRef = useRef(null)
+  const serverTabWarningsRef = useRef(0)
+  const requestedTabWarningsRef = useRef(0)
+  const tabWarningSyncRef = useRef(Promise.resolve())
   const returnToRef = useRef(location.state?.returnTo || getStoredReturnTo(sessionId) || '/assigned')
+
+  const syncTabWarnings = useCallback((targetCount) => {
+    requestedTabWarningsRef.current = Math.max(
+      requestedTabWarningsRef.current,
+      Number(targetCount) || 0,
+    )
+
+    const sync = async () => {
+      while (serverTabWarningsRef.current < requestedTabWarningsRef.current) {
+        const updatedSession = await adapterRef.current.warnTabSwitch(
+          sessionId,
+          requestedTabWarningsRef.current,
+        )
+        serverTabWarningsRef.current = Math.max(
+          serverTabWarningsRef.current + 1,
+          Number(updatedSession?.tab_warnings) || 0,
+        )
+      }
+    }
+
+    const task = tabWarningSyncRef.current.catch(() => {}).then(sync)
+    tabWarningSyncRef.current = task
+    return task
+  }, [sessionId])
 
   useEffect(() => {
     responsesRef.current = responses
@@ -72,7 +99,14 @@ export default function TestInterface() {
           navigate(`/result/${sessionId}`, { replace: true, state: { sessionType } })
           return
         }
-        setSession(sess)
+        const serverWarnings = Number(sess.tab_warnings) || 0
+        const restoredWarnings = Math.max(serverWarnings, getPersistedTabWarningCount(sessionId))
+        serverTabWarningsRef.current = serverWarnings
+        requestedTabWarningsRef.current = restoredWarnings
+        setSession({ ...sess, tab_warnings: restoredWarnings })
+        if (restoredWarnings > serverWarnings) {
+          void syncTabWarnings(restoredWarnings).catch(() => {})
+        }
 
         const qs = await adapter.getQuestions(sess)
         const paperDet = adapter.getPaperDetail ? await adapter.getPaperDetail(sess) : null
@@ -96,7 +130,22 @@ export default function TestInterface() {
       }
     }
     init()
-  }, [sessionId, navigate])
+  }, [sessionId, navigate, syncTabWarnings])
+
+  useEffect(() => {
+    function reconcileWarnings() {
+      const target = Math.max(
+        requestedTabWarningsRef.current,
+        getPersistedTabWarningCount(sessionId),
+      )
+      if (target > serverTabWarningsRef.current) {
+        void syncTabWarnings(target).catch(() => {})
+      }
+    }
+
+    window.addEventListener('online', reconcileWarnings)
+    return () => window.removeEventListener('online', reconcileWarnings)
+  }, [sessionId, syncTabWarnings])
 
   useEffect(() => {
     if (questions.length === 0) return
@@ -334,15 +383,15 @@ export default function TestInterface() {
 
   const handleTabWarn = useCallback((count) => {
     setTabWarning(count)
-    adapterRef.current.warnTabSwitch(sessionId).catch(() => {})
-  }, [sessionId])
+    void syncTabWarnings(count).catch(() => {})
+  }, [syncTabWarnings])
 
   const handleTabTerminate = useCallback(() => {
     if (expiringRef.current) return
     expiringRef.current = true
     setSubmitting(true)
     setTabWarning(null)
-    adapterRef.current.warnTabSwitch(sessionId).catch(() => {})
+    void syncTabWarnings(3).catch(() => {})
     flushCurrentQuestion()
       .catch(() => {})
       .then(() => adapterRef.current.submitSession(sessionId, { terminatedBy: 'tab_switch' }))
@@ -359,12 +408,14 @@ export default function TestInterface() {
         allowHistoryLeaveRef.current = true
         navigate(`/result/${sessionId}`, { replace: true, state: { sessionType, terminatedBy: 'tab_switch' } })
       })
-  }, [flushCurrentQuestion, sessionId, navigate, sessionType])
+  }, [flushCurrentQuestion, sessionId, navigate, sessionType, syncTabWarnings])
 
   useTabWarning({
     onWarn: handleTabWarn,
     onTerminate: handleTabTerminate,
     active: !!session && !submitting,
+    sessionId,
+    initialWarningCount: session?.tab_warnings ?? 0,
   })
 
   if (loading) {
