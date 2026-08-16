@@ -6,6 +6,7 @@ import AssignedTests from './pages/AssignedTests.jsx'
 import TestInterface from './pages/TestInterface.jsx'
 import TestResult from './pages/TestResult.jsx'
 import TestHistory from './pages/TestHistory.jsx'
+import PaperBrowser from './pages/PaperBrowser.jsx'
 import ForcePasswordReset from './pages/ForcePasswordReset.jsx'
 
 export default function App() {
@@ -33,6 +34,10 @@ export default function App() {
           <Route
             path="/history"
             element={<ProtectedRoute><TestHistory /></ProtectedRoute>}
+          />
+          <Route
+            path="/papers"
+            element={<ProtectedRoute><PaperBrowser /></ProtectedRoute>}
           />
           <Route path="*" element={<Navigate to="/assigned" replace />} />
         </Routes>

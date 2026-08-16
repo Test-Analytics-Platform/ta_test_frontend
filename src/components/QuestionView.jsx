@@ -63,6 +63,12 @@ export default function QuestionView({ question, questionNumber }) {
             {question.marks_wrong} wrong
           </span>
         )}
+        {['adv_multi_2026', 'adv_multi_partial'].includes(question.scoring_rule) && (
+          <span style={{ color: '#854F0B' }}>Partial credit applies for correct subsets</span>
+        )}
+        {question.scoring_rule === 'bonus_all' && (
+          <span style={{ color: '#085041' }}>Bonus question: full marks awarded</span>
+        )}
       </div>
     </div>
   )

@@ -123,6 +123,22 @@ export default function PaperBrowser() {
                   {(p.session || p.shift) && (
                     <span style={{ fontSize: 13, color: '#666' }}>{[p.session, p.shift].filter(Boolean).join(' · ')}</span>
                   )}
+                  {p.exam === 'JEE_ADV' && (
+                    <span
+                      title={p.marking_status === 'verified'
+                        ? `Official section marking verified${p.marking_manifest_id ? `: ${p.marking_manifest_id}` : ''}`
+                        : 'Section marking has not yet been verified against an official paper manifest'}
+                      style={{
+                        fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.06em',
+                        border: `1px solid ${p.marking_status === 'verified' ? '#0F6E56' : '#9A6700'}`,
+                        color: p.marking_status === 'verified' ? '#085041' : '#6E4B00',
+                        background: p.marking_status === 'verified' ? '#E1F5EE' : '#FFF8C5',
+                        padding: '2px 6px',
+                      }}
+                    >
+                      {p.marking_status === 'verified' ? 'Marking verified' : 'Marking unverified'}
+                    </span>
+                  )}
                 </div>
                 <div style={{ display: 'flex', gap: 16, fontSize: 12, color: '#555' }}>
                   {p.total_questions && <span>{p.total_questions} Qs</span>}

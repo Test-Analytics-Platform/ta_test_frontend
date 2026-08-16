@@ -365,7 +365,7 @@ export default function TestInterface() {
     alert('Time is up! Your test is being submitted.')
     flushCurrentQuestion()
       .catch(() => {})
-      .then(() => adapterRef.current.submitSession(sessionId))
+      .then(() => adapterRef.current.submitSession(sessionId, { terminatedBy: 'time_limit' }))
       .then(() => {
         allowHistoryLeaveRef.current = true
         try {
@@ -600,7 +600,7 @@ export default function TestInterface() {
             )}
             {isInteger && (
               <span style={{ fontSize: 10, background: '#111', color: '#fff', padding: '2px 7px', textTransform: 'uppercase' }}>
-                Integer
+                Numerical Answer
               </span>
             )}
             <span style={{ marginLeft: 'auto', fontSize: 11, color: currentResp.is_flagged ? '#854F0B' : '#bbb' }}>
@@ -642,10 +642,11 @@ export default function TestInterface() {
               {isInteger && (
                 <div style={{ marginTop: 16 }}>
                   <label style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#666', display: 'block', marginBottom: 6 }}>
-                    Your Answer (integer)
+                    Your numerical answer
                   </label>
                   <input
                     type="number"
+                    step="any"
                     value={currentResp.selected_option || ''}
                     onChange={(e) => handleSelectOption(currentQ.question_id, e.target.value || null)}
                     style={{

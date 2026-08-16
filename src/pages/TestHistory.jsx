@@ -87,6 +87,7 @@ export default function TestHistory() {
             {sessions.map((s, i) => {
               const pct = s.score_max ? ((s.score_total / s.score_max) * 100).toFixed(1) : null
               const statusStyle = STATUS_STYLES[s.status] || {}
+              const isCompleted = s.status === 'submitted' || s.status === 'timed_out'
               return (
                 <div
                   key={s.session_id}
@@ -96,10 +97,10 @@ export default function TestHistory() {
                     gap: isMobile ? 10 : 16,
                     padding: isMobile ? '14px 16px' : '14px 20px',
                     borderTop: i > 0 ? '1px solid #ddd' : 'none',
-                    cursor: s.status === 'submitted' ? 'pointer' : 'default',
+                    cursor: isCompleted ? 'pointer' : 'default',
                     minHeight: 64,
                   }}
-                  onClick={() => s.status === 'submitted' && navigate(`/result/${s.session_id}`, { state: { sessionType: s.kind === 'custom' ? 'custom' : 'nta' } })}
+                  onClick={() => isCompleted && navigate(`/result/${s.session_id}`, { state: { sessionType: s.kind === 'custom' ? 'custom' : 'nta' } })}
                 >
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: isMobile ? 13 : 14, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -112,7 +113,7 @@ export default function TestHistory() {
                     </div>
                   </div>
 
-                  {s.status === 'submitted' && s.score_total != null && (
+                  {isCompleted && s.score_total != null && (
                     <div style={{ textAlign: 'right', flexShrink: 0 }}>
                       <div style={{ fontSize: isMobile ? 16 : 20, fontWeight: 500, letterSpacing: '-0.02em' }}>
                         {s.score_total.toFixed(1)}

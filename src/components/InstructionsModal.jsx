@@ -15,6 +15,19 @@ const MARKING_SCHEME = {
   ],
 }
 
+const OFFICIAL_MARKING_GUIDE = {
+  JEE_MAINS: [
+    { type: 'MCQ (Single Correct)', correct: '+4', wrong: '-1', note: 'One option is correct' },
+    { type: 'Numerical Value', correct: '+4', wrong: '-1', note: 'Current NTA pattern; stored question rules apply' },
+  ],
+  JEE_ADV: [
+    { type: 'Section-specific', correct: 'Per question', wrong: 'Per question', note: 'Partial credit and deductions vary by paper section' },
+  ],
+  NEET: [
+    { type: 'MCQ (Single Correct)', correct: '+4', wrong: '-1', note: 'Physics, Chemistry and Biology' },
+  ],
+}
+
 const INSTRUCTIONS = [
   'Read every question carefully before selecting your answer.',
   'Use the question palette to jump to any question.',
@@ -45,7 +58,7 @@ export default function InstructionsModal({ paper, title, onClose, onBegin, isMo
   // a subject/topic practice test or generated mock doesn't follow the exact same
   // per-question-type counts, so we skip it and rely on the generic stats row below.
   const scheme = paper.paper_kind === 'official_pyq' || !paper.paper_kind
-    ? MARKING_SCHEME[paper.exam] || []
+    ? OFFICIAL_MARKING_GUIDE[paper.exam] || MARKING_SCHEME[paper.exam] || []
     : []
 
   return (

@@ -1,8 +1,7 @@
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 
-// Shared top bar for Pariksha. Students only take institute-assigned tests, so
-// nav is Assigned Tests (take) + My Tests (attempt history).
+// Shared top bar for assigned tests, official past papers, and attempt history.
 export default function TopBar({ isMobile }) {
   const { auth, logout } = useAuth()
   const navigate = useNavigate()
@@ -34,6 +33,9 @@ export default function TopBar({ isMobile }) {
         <div style={{ display: 'flex', gap: isMobile ? 6 : 10, alignItems: 'center', flexWrap: 'wrap' }}>
           <button onClick={() => navigate('/assigned')} style={navBtnStyle(location.pathname === '/assigned')}>
             {isMobile ? 'Assigned' : 'Assigned Tests'}
+          </button>
+          <button onClick={() => navigate('/papers')} style={navBtnStyle(location.pathname === '/papers')}>
+            {isMobile ? 'Papers' : 'Past Papers'}
           </button>
           <button onClick={() => navigate('/history')} style={navBtnStyle(location.pathname === '/history')}>
             {isMobile ? 'Tests' : 'My Tests'}

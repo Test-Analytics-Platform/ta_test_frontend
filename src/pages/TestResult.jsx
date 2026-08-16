@@ -111,6 +111,24 @@ export default function TestResult() {
         </div>
       )}
 
+      {terminatedBy === 'time_limit' && (
+        <div
+          style={{
+            background: '#854F0B',
+            color: '#fff',
+            padding: isMobile ? '12px 16px' : '14px 24px',
+            fontSize: 13,
+            lineHeight: 1.5,
+            borderBottom: '1.5px solid #111',
+          }}
+        >
+          <div style={{ fontWeight: 700, marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.06em', fontSize: 11 }}>
+            Time Expired
+          </div>
+          This test was automatically submitted when the time limit ended. All answers saved before expiry have been scored below.
+        </div>
+      )}
+
       <div style={{ padding: isMobile ? '16px' : '24px' }}>
         {/* Score summary — 2x2 on mobile, 1x4 on desktop */}
         <div style={{ marginBottom: 8, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#666' }}>
