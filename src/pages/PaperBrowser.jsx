@@ -4,6 +4,8 @@ import { getPapers } from '../api/papers.js'
 import { useIsMobile } from '../hooks/useIsMobile.js'
 import { useStartTest } from '../hooks/useStartTest.js'
 import { useAttemptsByPaper } from '../hooks/useAttemptsByPaper.js'
+import { useWindowClock } from '../hooks/useWindowClock.js'
+import { assignmentWindowState } from '../utils/assignmentWindow.js'
 import InstructionsModal from '../components/InstructionsModal.jsx'
 import TopBar from '../components/TopBar.jsx'
 
@@ -21,6 +23,7 @@ export default function PaperBrowser() {
 
   const { instructionsFor, setInstructionsFor, error: startError, handleBeginTest } = useStartTest(auth?.student_id)
   const attemptsByPaper = useAttemptsByPaper(auth?.student_id)
+  const now = useWindowClock()
 
   const allowedExams = STUDENT_EXAM_MAP[auth?.exam] || EXAMS.filter((e) => e !== 'All')
   const visibleTabs = ['All', ...allowedExams]
@@ -98,6 +101,7 @@ export default function PaperBrowser() {
               const bestPct = attempt?.bestScore != null && attempt.bestMax
                 ? Math.round((attempt.bestScore / attempt.bestMax) * 100)
                 : null
+              const window = assignmentWindowState(p, now)
               return (
               <div
                 key={p.paper_id}
@@ -158,23 +162,29 @@ export default function PaperBrowser() {
                     </span>
                   </div>
                 )}
+                {window.blocked && (
+                  <span style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700, background: '#FAEEDA', color: '#854F0B', padding: '2px 7px', alignSelf: 'flex-start' }}>
+                    {window.label}
+                  </span>
+                )}
                 <button
                   onClick={() => setInstructionsFor(p)}
+                  disabled={window.blocked}
                   style={{
                     marginTop: 4,
-                    background: attempt ? '#fff' : '#0F6E56',
-                    color: attempt ? '#0F6E56' : '#fff',
-                    border: attempt ? '1.5px solid #0F6E56' : 'none',
+                    background: window.blocked ? '#ccc' : attempt ? '#fff' : '#0F6E56',
+                    color: window.blocked ? '#fff' : attempt ? '#0F6E56' : '#fff',
+                    border: !window.blocked && attempt ? '1.5px solid #0F6E56' : 'none',
                     padding: isMobile ? '12px 0' : '9px 0',
                     fontSize: isMobile ? 13 : 11,
                     fontWeight: 600,
                     textTransform: 'uppercase',
                     letterSpacing: '0.1em',
-                    cursor: 'pointer',
+                    cursor: window.blocked ? 'not-allowed' : 'pointer',
                     fontFamily: 'inherit',
                   }}
                 >
-                  {attempt ? 'Retake Test' : 'Start Test'}
+                  {window.blocked ? window.label : attempt ? 'Retake Test' : 'Start Test'}
                 </button>
               </div>
               )

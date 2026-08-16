@@ -5,6 +5,8 @@ import { getAssignedTests } from '../api/assignments.js'
 import { startCustomSession } from '../api/customTestSessions.js'
 import { startSession } from '../api/sessions.js'
 import { useIsMobile } from '../hooks/useIsMobile.js'
+import { useWindowClock } from '../hooks/useWindowClock.js'
+import { assignmentWindowState } from '../utils/assignmentWindow.js'
 import TopBar from '../components/TopBar.jsx'
 
 // Short uppercase label per test type, shown as a badge alongside the exam.
@@ -24,7 +26,7 @@ export default function AssignedTests() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [starting, setStarting] = useState(null)
-  const [, setNowTick] = useState(0)
+  const now = useWindowClock()
 
   useEffect(() => {
     if (!auth?.student_id) return
@@ -33,11 +35,6 @@ export default function AssignedTests() {
       .catch(() => setError('Failed to load assigned tests'))
       .finally(() => setLoading(false))
   }, [auth?.student_id])
-
-  useEffect(() => {
-    const interval = setInterval(() => setNowTick((t) => t + 1), 15000)
-    return () => clearInterval(interval)
-  }, [])
 
   async function handleStart(test) {
     // sessionType drives which adapter TestInterface/TestResult use: 'custom'
@@ -65,17 +62,6 @@ export default function AssignedTests() {
     }
   }
 
-  function windowState(test) {
-    const now = new Date()
-    if (test.available_from && now < new Date(test.available_from)) {
-      return { blocked: true, label: `Opens ${new Date(test.available_from).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}` }
-    }
-    if (test.available_until && now > new Date(test.available_until)) {
-      return { blocked: true, label: 'Window closed' }
-    }
-    return { blocked: false, label: null }
-  }
-
   return (
     <div style={{ minHeight: '100vh', background: '#fff' }}>
       <TopBar isMobile={isMobile} />
@@ -101,7 +87,7 @@ export default function AssignedTests() {
               const isSubmitted = t.session_status === 'submitted' || t.session_status === 'timed_out'
               const isActive = t.session_status === 'active'
               const hasStarted = isSubmitted || isActive
-              const win = !hasStarted ? windowState(t) : { blocked: false, label: null }
+              const win = !hasStarted ? assignmentWindowState(t, now) : { blocked: false, label: null }
               return (
                 <div
                   key={t.assignment_id}

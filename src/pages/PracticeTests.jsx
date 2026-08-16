@@ -5,6 +5,8 @@ import { getPapers, getPracticeFilters } from '../api/papers.js'
 import { useIsMobile } from '../hooks/useIsMobile.js'
 import { useStartTest } from '../hooks/useStartTest.js'
 import { useAttemptsByPaper } from '../hooks/useAttemptsByPaper.js'
+import { useWindowClock } from '../hooks/useWindowClock.js'
+import { assignmentWindowState } from '../utils/assignmentWindow.js'
 import InstructionsModal from '../components/InstructionsModal.jsx'
 import TopBar from '../components/TopBar.jsx'
 
@@ -33,10 +35,11 @@ function chipStyle(active, isMobile) {
   }
 }
 
-function PaperCard({ p, name, subLabel, attempt, onStart, isMobile }) {
+function PaperCard({ p, name, subLabel, attempt, onStart, isMobile, now }) {
   const bestPct = attempt?.bestScore != null && attempt.bestMax
     ? Math.round((attempt.bestScore / attempt.bestMax) * 100)
     : null
+  const window = assignmentWindowState(p, now)
   return (
     <div
       style={{
@@ -65,23 +68,29 @@ function PaperCard({ p, name, subLabel, attempt, onStart, isMobile }) {
           </span>
         </div>
       )}
+      {window.blocked && (
+        <span style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700, background: '#FAEEDA', color: '#854F0B', padding: '2px 7px', alignSelf: 'flex-start' }}>
+          {window.label}
+        </span>
+      )}
       <button
         onClick={onStart}
+        disabled={window.blocked}
         style={{
           marginTop: 4,
-          background: attempt ? '#fff' : '#0F6E56',
-          color: attempt ? '#0F6E56' : '#fff',
-          border: attempt ? '1.5px solid #0F6E56' : 'none',
+          background: window.blocked ? '#ccc' : attempt ? '#fff' : '#0F6E56',
+          color: window.blocked ? '#fff' : attempt ? '#0F6E56' : '#fff',
+          border: !window.blocked && attempt ? '1.5px solid #0F6E56' : 'none',
           padding: isMobile ? '12px 0' : '9px 0',
           fontSize: isMobile ? 13 : 11,
           fontWeight: 600,
           textTransform: 'uppercase',
           letterSpacing: '0.1em',
-          cursor: 'pointer',
+          cursor: window.blocked ? 'not-allowed' : 'pointer',
           fontFamily: 'inherit',
         }}
       >
-        {attempt ? 'Retake Test' : 'Start Test'}
+        {window.blocked ? window.label : attempt ? 'Retake Test' : 'Start Test'}
       </button>
     </div>
   )
@@ -143,7 +152,7 @@ function Pagination({ page, pageCount, onChange, isMobile }) {
   )
 }
 
-function FullMocksSection({ exam, studentId, attemptsByPaper, onStart, isMobile, loading, setLoading, papers, setPapers }) {
+function FullMocksSection({ exam, studentId, attemptsByPaper, onStart, isMobile, loading, setLoading, papers, setPapers, now }) {
   const [page, setPage] = useState(0)
 
   useEffect(() => {
@@ -174,6 +183,7 @@ function FullMocksSection({ exam, studentId, attemptsByPaper, onStart, isMobile,
             attempt={attemptsByPaper[p.paper_id]}
             onStart={() => onStart(p)}
             isMobile={isMobile}
+            now={now}
           />
         ))}
       </PaperGrid>
@@ -182,7 +192,7 @@ function FullMocksSection({ exam, studentId, attemptsByPaper, onStart, isMobile,
   )
 }
 
-function SubjectTestsSection({ exam, studentId, attemptsByPaper, onStart, isMobile }) {
+function SubjectTestsSection({ exam, studentId, attemptsByPaper, onStart, isMobile, now }) {
   const [papers, setPapers] = useState([])
   const [loading, setLoading] = useState(true)
   const [activeSubject, setActiveSubject] = useState(null)
@@ -242,6 +252,7 @@ function SubjectTestsSection({ exam, studentId, attemptsByPaper, onStart, isMobi
               attempt={attemptsByPaper[p.paper_id]}
               onStart={() => onStart(p)}
               isMobile={isMobile}
+              now={now}
             />
         ))}
       </PaperGrid>
@@ -260,6 +271,7 @@ function TopicPracticeSection({
   initialTopic,
   initialSubtopic,
   onTopicParamsChange,
+  now,
 }) {
   const [tree, setTree] = useState({})
   const [subject, setSubject] = useState(initialSubject || null)
@@ -408,6 +420,7 @@ function TopicPracticeSection({
                   attempt={attemptsByPaper[p.paper_id]}
                   onStart={() => onStart(p)}
                   isMobile={isMobile}
+                  now={now}
                 />
               ))}
             </PaperGrid>
@@ -437,6 +450,7 @@ export default function PracticeTests() {
 
   const { instructionsFor, setInstructionsFor, error, handleBeginTest } = useStartTest(auth?.student_id)
   const attemptsByPaper = useAttemptsByPaper(auth?.student_id)
+  const now = useWindowClock()
 
   const setPracticeParams = useCallback((updates) => {
     const next = new URLSearchParams(searchParams)
@@ -523,6 +537,7 @@ export default function PracticeTests() {
             setLoading={setMockLoading}
             papers={mockPapers}
             setPapers={setMockPapers}
+            now={now}
           />
         ) : section === 'subject' ? (
           <SubjectTestsSection
@@ -531,6 +546,7 @@ export default function PracticeTests() {
             attemptsByPaper={attemptsByPaper}
             onStart={setInstructionsFor}
             isMobile={isMobile}
+            now={now}
           />
         ) : (
           <TopicPracticeSection
@@ -543,6 +559,7 @@ export default function PracticeTests() {
             initialTopic={searchParams.get('topic')}
             initialSubtopic={searchParams.get('subtopic')}
             onTopicParamsChange={handleTopicParamsChange}
+            now={now}
           />
         )}
       </div>
