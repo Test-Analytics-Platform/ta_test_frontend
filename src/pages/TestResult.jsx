@@ -8,8 +8,6 @@ import QuestionView from '../components/QuestionView.jsx'
 import OptionButton from '../components/OptionButton.jsx'
 import { useIsMobile } from '../hooks/useIsMobile.js'
 
-const EXAM_LABELS = { JEE_MAINS: 'JEE Mains', JEE_ADV: 'JEE Advanced', NEET: 'NEET UG' }
-
 export default function TestResult() {
   const { sessionId } = useParams()
   const navigate = useNavigate()
@@ -61,7 +59,7 @@ export default function TestResult() {
   const scorePct = session.score_max ? Math.round((session.score_total / session.score_max) * 100) : null
 
   const paperLabel = paper
-    ? [EXAM_LABELS[paper.exam] || paper.exam, paper.year, paper.session, paper.shift].filter(Boolean).join(' · ')
+    ? paper.title
     : session?.title ?? null
 
   return (

@@ -169,7 +169,7 @@ function FullMocksSection({ exam, studentId, attemptsByPaper, onStart, isMobile,
           <PaperCard
             key={p.paper_id}
             p={p}
-            name={`Full Mock #${p.shift}`}
+            name={p.title}
             subLabel={EXAM_LABELS[p.exam] || p.exam}
             attempt={attemptsByPaper[p.paper_id]}
             onStart={() => onStart(p)}
@@ -234,19 +234,16 @@ function SubjectTestsSection({ exam, studentId, attemptsByPaper, onStart, isMobi
         ))}
       </div>
       <PaperGrid papers={pagePapers} isMobile={isMobile}>
-        {pagePapers.map((p) => {
-          const i = subjectPapers.indexOf(p)
-          return (
+        {pagePapers.map((p) => (
             <PaperCard
               key={p.paper_id}
               p={p}
-              name={`${subject} Test #${i + 1}`}
+              name={p.title}
               attempt={attemptsByPaper[p.paper_id]}
               onStart={() => onStart(p)}
               isMobile={isMobile}
             />
-          )
-        })}
+        ))}
       </PaperGrid>
       <Pagination page={pageSafe} pageCount={pageCount} onChange={setPage} isMobile={isMobile} />
     </div>
@@ -406,7 +403,7 @@ function TopicPracticeSection({
                 <PaperCard
                   key={p.paper_id}
                   p={p}
-                  name={p.filter_subtopic || p.filter_topic}
+                  name={p.title}
                   subLabel={p.filter_subtopic ? p.filter_topic : subject}
                   attempt={attemptsByPaper[p.paper_id]}
                   onStart={() => onStart(p)}
@@ -553,11 +550,7 @@ export default function PracticeTests() {
       {instructionsFor && (
         <InstructionsModal
           paper={instructionsFor}
-          title={
-            instructionsFor.paper_kind === 'generated_mock'
-              ? `Full Mock #${instructionsFor.shift}`
-              : instructionsFor.filter_subtopic || instructionsFor.filter_topic || instructionsFor.filter_subject
-          }
+          title={instructionsFor.title}
           onClose={() => setInstructionsFor(null)}
           onBegin={handleBeginTest}
           isMobile={isMobile}

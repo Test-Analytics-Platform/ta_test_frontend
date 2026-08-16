@@ -119,10 +119,7 @@ export default function PaperBrowser() {
                   >
                     {EXAM_LABELS[p.exam] || p.exam}
                   </span>
-                  <span style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em' }}>{p.year}</span>
-                  {(p.session || p.shift) && (
-                    <span style={{ fontSize: 13, color: '#666' }}>{[p.session, p.shift].filter(Boolean).join(' · ')}</span>
-                  )}
+                  <span style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em' }}>{p.title}</span>
                   {p.exam === 'JEE_ADV' && (
                     <span
                       title={p.marking_status === 'verified'
@@ -189,7 +186,7 @@ export default function PaperBrowser() {
       {instructionsFor && (
         <InstructionsModal
           paper={instructionsFor}
-          title={`${EXAM_LABELS[instructionsFor.exam] || instructionsFor.exam} ${instructionsFor.year}${instructionsFor.session ? ` · ${instructionsFor.session}` : ''}${instructionsFor.shift ? ` · ${instructionsFor.shift}` : ''}`}
+          title={instructionsFor.title}
           onClose={() => setInstructionsFor(null)}
           onBegin={handleBeginTest}
           isMobile={isMobile}

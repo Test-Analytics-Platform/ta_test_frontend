@@ -5,8 +5,6 @@ import { getStudentSessions } from '../api/sessions.js'
 import { getCustomStudentSessions } from '../api/customTestSessions.js'
 import { useIsMobile } from '../hooks/useIsMobile.js'
 
-const EXAM_LABELS = { JEE_MAINS: 'JEE Mains', JEE_ADV: 'JEE Advanced', NEET: 'NEET UG' }
-
 const STATUS_STYLES = {
   submitted: { background: '#085041', color: '#E1F5EE' },
   active: { background: '#0F6E56', color: '#fff' },
@@ -106,7 +104,7 @@ export default function TestHistory() {
                     <div style={{ fontSize: isMobile ? 13 : 14, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {s.kind === 'custom'
                         ? s.title
-                        : <>{EXAM_LABELS[s.exam] || s.exam} {s.year}{s.session && ` · ${s.session}`}{s.shift && ` ${s.shift}`}</>}
+                        : s.title}
                     </div>
                     <div style={{ fontSize: 11, color: '#666', marginTop: 3 }}>
                       {new Date(s.started_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}

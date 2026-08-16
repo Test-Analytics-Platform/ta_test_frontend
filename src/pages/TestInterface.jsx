@@ -8,7 +8,6 @@ import { useIsMobile } from '../hooks/useIsMobile.js'
 import { getPersistedTabWarningCount, useTabWarning } from '../hooks/useTabWarning.js'
 import { makeSessionAdapter } from '../api/sessionAdapter.js'
 
-const EXAM_LABELS = { JEE_MAINS: 'JEE Mains', JEE_ADV: 'JEE Advanced', NEET: 'NEET UG' }
 const SAVE_DEBOUNCE_MS = 400
 const LEAVE_TEST_MESSAGE = 'Your test is in progress. Saved answers remain, but the timer keeps running. Leave this test screen?'
 
@@ -449,12 +448,7 @@ export default function TestInterface() {
 
   const paperLabel = sessionType === 'custom'
     ? (session?.title ?? '')
-    : [
-        EXAM_LABELS[paper?.exam] || paper?.exam,
-        paper?.year,
-        paper?.session,
-        paper?.shift,
-      ].filter(Boolean).join(' · ')
+    : paper?.title
 
   const answeredCount = Object.values(responses).filter((r) => r.selected_option != null).length
 
