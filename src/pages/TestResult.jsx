@@ -39,6 +39,7 @@ export default function TestResult() {
         map[q.question_id] = {
           selected_option: q.selected_option,
           is_correct: q.is_correct,
+          score_status: q.score_status,
           is_flagged: q.is_flagged,
           marks_awarded: q.marks_awarded,
         }
@@ -53,9 +54,18 @@ export default function TestResult() {
   if (!session) return null
 
   const terminatedBy = session.terminated_by || terminatedByState
-  const correct = Object.values(responses).filter((r) => r.is_correct === true).length
-  const wrong = Object.values(responses).filter((r) => r.is_correct === false).length
-  const skipped = questions.length - correct - wrong
+  const responseStatus = (response) => {
+    if (response?.score_status) return response.score_status
+    if (response?.selected_option == null) return 'unanswered'
+    if (response?.is_correct === true) return 'correct'
+    if (response?.is_correct === false && response?.marks_awarded > 0) return 'partial'
+    return 'incorrect'
+  }
+  const statuses = Object.values(responses).map(responseStatus)
+  const correct = statuses.filter((status) => status === 'correct' || status === 'bonus').length
+  const partial = statuses.filter((status) => status === 'partial').length
+  const wrong = statuses.filter((status) => status === 'incorrect').length
+  const skipped = questions.length - correct - partial - wrong
   const scorePct = session.score_max ? Math.round((session.score_total / session.score_max) * 100) : null
 
   const paperLabel = paper
@@ -136,7 +146,7 @@ export default function TestResult() {
           style={{
             border: '1.5px solid #111',
             display: 'grid',
-            gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)',
+            gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(5, 1fr)',
             marginBottom: 28,
           }}
         >
@@ -148,6 +158,7 @@ export default function TestResult() {
               accent: scorePct != null ? (scorePct >= 60 ? '#085041' : scorePct >= 40 ? '#854F0B' : '#A32D2D') : undefined,
             },
             { label: 'Correct', value: correct, color: '#085041' },
+            { label: 'Partial', value: partial, color: '#534AB7' },
             { label: 'Wrong', value: wrong, color: '#A32D2D' },
             { label: 'Skipped', value: skipped, color: '#666' },
           ].map((s, i) => {
@@ -184,10 +195,12 @@ export default function TestResult() {
         <div>
           {questions.map((q, idx) => {
             const resp = responses[q.question_id]
-            const isCorrect = resp?.is_correct === true
-            const isWrong = resp?.is_correct === false
+            const status = responseStatus(resp)
+            const isCorrect = status === 'correct' || status === 'bonus'
+            const isPartial = status === 'partial'
+            const isWrong = status === 'incorrect'
             const isSkipped = !resp || resp.selected_option == null
-            const borderColor = isCorrect ? '#085041' : isWrong ? '#A32D2D' : '#ccc'
+            const borderColor = isCorrect ? '#085041' : isPartial ? '#534AB7' : isWrong ? '#A32D2D' : '#ccc'
             const isExpanded = expandedQ === q.question_id
 
             return (
@@ -206,6 +219,11 @@ export default function TestResult() {
                   {isCorrect && (
                     <span style={{ fontSize: 10, background: '#085041', color: '#E1F5EE', padding: '2px 8px', textTransform: 'uppercase', flexShrink: 0 }}>
                       ✓
+                    </span>
+                  )}
+                  {isPartial && (
+                    <span style={{ fontSize: 10, background: '#EEEDFE', color: '#3C3489', padding: '2px 8px', textTransform: 'uppercase', flexShrink: 0 }}>
+                      Partial
                     </span>
                   )}
                   {isWrong && (
