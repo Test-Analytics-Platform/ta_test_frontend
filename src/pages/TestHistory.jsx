@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { getStudentSessions } from '../api/sessions.js'
 import { getCustomStudentSessions } from '../api/customTestSessions.js'
+import { getStudentMockAttempts } from '../api/mockAttempts.js'
 import { useIsMobile } from '../hooks/useIsMobile.js'
 
 const STATUS_STYLES = {
@@ -23,8 +24,9 @@ export default function TestHistory() {
     Promise.all([
       getStudentSessions(auth.student_id),
       getCustomStudentSessions(auth.student_id),
+      getStudentMockAttempts(auth.student_id),
     ])
-      .then(([nta, custom]) => {
+      .then(([nta, custom, legacyMocks]) => {
         const customRows = custom.map((s) => ({
           session_id: s.session_id,
           kind: 'custom',
@@ -35,7 +37,17 @@ export default function TestHistory() {
           score_max: s.score_max,
         }))
         const ntaRows = nta.map((s) => ({ ...s, kind: 'nta' }))
-        const merged = [...ntaRows, ...customRows].sort(
+        const legacyRows = (legacyMocks.attempts ?? []).map((a) => ({
+          session_id: `legacy-${a.mock_attempt_id}`,
+          kind: 'legacy_mock',
+          title: a.event_name ?? 'Mock Test',
+          started_at: a.event_date ?? a.taken_at,
+          status: 'submitted',
+          score_total: a.total_score,
+          score_max: a.max_score,
+          read_only: true,
+        }))
+        const merged = [...ntaRows, ...customRows, ...legacyRows].sort(
           (a, b) => new Date(b.started_at ?? 0) - new Date(a.started_at ?? 0)
         )
         setSessions(merged)
@@ -95,10 +107,10 @@ export default function TestHistory() {
                     gap: isMobile ? 10 : 16,
                     padding: isMobile ? '14px 16px' : '14px 20px',
                     borderTop: i > 0 ? '1px solid #ddd' : 'none',
-                    cursor: isCompleted ? 'pointer' : 'default',
+                    cursor: isCompleted && !s.read_only ? 'pointer' : 'default',
                     minHeight: 64,
                   }}
-                  onClick={() => isCompleted && navigate(`/result/${s.session_id}`, { state: { sessionType: s.kind === 'custom' ? 'custom' : 'nta' } })}
+                  onClick={() => isCompleted && !s.read_only && navigate(`/result/${s.session_id}`, { state: { sessionType: s.kind === 'custom' ? 'custom' : 'nta' } })}
                 >
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: isMobile ? 13 : 14, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -133,6 +145,12 @@ export default function TestHistory() {
                     >
                       Resume
                     </button>
+                  )}
+
+                  {s.read_only && (
+                    <span style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#666' }}>
+                      Imported result
+                    </span>
                   )}
 
                   <span

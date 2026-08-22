@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { getAssignedTests } from '../api/assignments.js'
+import { getStudentMockAttempts } from '../api/mockAttempts.js'
 import { startCustomSession } from '../api/customTestSessions.js'
 import { startSession } from '../api/sessions.js'
 import { useIsMobile } from '../hooks/useIsMobile.js'
@@ -30,13 +31,28 @@ export default function AssignedTests() {
 
   useEffect(() => {
     if (!auth?.student_id) return
-    getAssignedTests(auth.student_id)
-      .then(setTests)
+    Promise.all([getAssignedTests(auth.student_id), getStudentMockAttempts(auth.student_id)])
+      .then(([assigned, legacy]) => {
+        const attempted = (legacy.attempts ?? []).map((a) => ({
+          assignment_id: `legacy-attempt-${a.mock_attempt_id}`,
+          type: 'mock', title: a.event_name ?? 'Mock Test', exam: auth.exam,
+          due_at: a.event_date ?? a.taken_at, session_status: 'submitted',
+          score_total: a.total_score, score_max: a.max_score,
+          read_only: true, legacy_status: 'completed',
+        }))
+        const missed = (legacy.not_attempted ?? []).map((e) => ({
+          assignment_id: `legacy-missed-${e.event_id}`,
+          type: 'mock', title: e.event_name ?? 'Mock Test', exam: auth.exam,
+          due_at: e.event_date, read_only: true, legacy_status: 'not_attempted',
+        }))
+        setTests([...assigned, ...attempted, ...missed])
+      })
       .catch(() => setError('Failed to load assigned tests'))
       .finally(() => setLoading(false))
-  }, [auth?.student_id])
+  }, [auth?.student_id, auth?.exam])
 
   async function handleStart(test) {
+    if (test.read_only) return
     // sessionType drives which adapter TestInterface/TestResult use: 'custom'
     // for custom tests, 'nta' for every paper type (pyq/mock/subject/topic).
     const sessionType = test.type === 'custom' ? 'custom' : 'nta'
@@ -119,12 +135,17 @@ export default function AssignedTests() {
                       ✓ Completed
                     </span>
                   )}
+                  {t.legacy_status === 'not_attempted' && (
+                    <span style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700, background: '#FAEEDA', color: '#854F0B', padding: '2px 7px', alignSelf: 'flex-start' }}>
+                      Not attempted · historical
+                    </span>
+                  )}
                   {win.blocked && (
                     <span style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700, background: '#FAEEDA', color: '#854F0B', padding: '2px 7px', alignSelf: 'flex-start' }}>
                       {win.label}
                     </span>
                   )}
-                  <button
+                  {!t.read_only && <button
                     onClick={() => handleStart(t)}
                     disabled={starting === t.assignment_id || win.blocked}
                     style={{
@@ -142,7 +163,12 @@ export default function AssignedTests() {
                     }}
                   >
                     {isSubmitted ? 'View Result' : isActive ? 'Resume Test' : win.blocked ? win.label : starting === t.assignment_id ? 'Starting...' : 'Start Test'}
-                  </button>
+                  </button>}
+                  {t.read_only && (
+                    <div style={{ marginTop: 4, border: '1.5px solid #999', color: '#666', padding: isMobile ? '12px 0' : '9px 0', fontSize: isMobile ? 12 : 11, textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                      {t.legacy_status === 'completed' ? 'Result recorded' : 'Historical test'}
+                    </div>
+                  )}
                 </div>
               )
             })}

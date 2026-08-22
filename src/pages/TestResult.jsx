@@ -56,9 +56,10 @@ export default function TestResult() {
   const terminatedBy = session.terminated_by || terminatedByState
   const responseStatus = (response) => {
     if (response?.score_status) return response.score_status
-    if (response?.selected_option == null) return 'unanswered'
     if (response?.is_correct === true) return 'correct'
     if (response?.is_correct === false && response?.marks_awarded > 0) return 'partial'
+    if (response?.is_correct === false) return 'incorrect'
+    if (response?.selected_option == null) return 'unanswered'
     return 'incorrect'
   }
   const statuses = Object.values(responses).map(responseStatus)
@@ -193,13 +194,13 @@ export default function TestResult() {
           Question Review ({questions.length} questions)
         </div>
         <div>
-          {questions.map((q, idx) => {
+          {questions.map((q) => {
             const resp = responses[q.question_id]
             const status = responseStatus(resp)
             const isCorrect = status === 'correct' || status === 'bonus'
             const isPartial = status === 'partial'
             const isWrong = status === 'incorrect'
-            const isSkipped = !resp || resp.selected_option == null
+            const isSkipped = status === 'unanswered'
             const borderColor = isCorrect ? '#085041' : isPartial ? '#534AB7' : isWrong ? '#A32D2D' : '#ccc'
             const isExpanded = expandedQ === q.question_id
 
@@ -249,7 +250,7 @@ export default function TestResult() {
                     <QuestionView question={q} questionNumber={q.question_number} />
                     <div style={{ padding: isMobile ? '0 14px 16px' : '0 24px 20px' }}>
                       <div style={{ display: 'flex', gap: isMobile ? 8 : 16, marginBottom: 10, fontSize: 12, color: '#444', flexWrap: 'wrap' }}>
-                        <span>Your answer: <strong>{q.selected_option || 'Skipped'}</strong></span>
+                        <span>Your answer: <strong>{q.selected_option || (isSkipped ? 'Skipped' : 'Recorded response')}</strong></span>
                         <span>Correct: <strong>{q.correct_option || 'N/A'}</strong></span>
                       </div>
                       {q.options?.length > 0 && q.options.map((opt) => {
